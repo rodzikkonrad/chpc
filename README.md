@@ -29,6 +29,19 @@ Controlled via both RS-485 and 16x2 display with buttons.
 - 01 May, 2019: CHPC fully tested and released
 - 02 May, 2019: PCB rev.1.3 coming up, main feature: a lot of DS18B20 inputs
 - 17 May, 2019: <b>PCB 1.3 tested, [assembly instructions added](https://github.com/gonzho000/chpc/wiki/assembly)</b>
+- 24Nov 2022: (Waldek)
+  - added half-steps to the EEV increasing accuracy
+  - delay added, Cold WP turns on first and compressor turns on later
+  - same when the compressor is turned off, after [COMPRESSOR_DELAY] shuts down Cold WP
+- 15 sep 2023: (Waldek)
+  - added heat pump cooling capability (four-way reversing valve needed)
+  - [RELAY_4WAY_VALVE] relay controls [valve4w_state]
+  - moved [T_setpoint_cooling] to eeprom
+  - added possibility to heat domestic hot water (three-way valve needed)
+  - [RELAY_SUMP_HEATER] relay controls [valve_cwu_position] ATTENTION!!!!! No sump heating in this!!!!! The heat pump must stand in a room with a minimum temperature of 10 degrees Celsius!!!!!
+  - [T_TARGET_CWU] was moved to eeprom, [CWU_INTERVAL] - every how many hours in milliseconds to start a water heating cycle, [CWU_MAX_HEATING_TIME] - how many hours in milliseconds to heat water in one cycle
+- added [CWU_HYSTERESIS] and moved to eeprom
+- transferred [T_EEV_setpoint] to eeprom
 <br><br>
 ## Applications:
 | Usage. |	Brief description. | 	Application examples	| Available protections	|

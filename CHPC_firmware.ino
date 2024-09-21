@@ -161,6 +161,7 @@ v1.8W 15 sep 2023: (Waldek)
 
 //TODO:
 - establish the procedure for going from cooling to DHW heating (compressor stop, pause 60 seconds, switch the four-way valve and DHW, pause 60 seconds, start the compressor). The same in the other direction.  
+- 1604 display support
 - 0.0 to -127 fix: only 2 attempts than pass 0.0
 - poss. DoS: infinite read to nowhere, fix it, set finite counter (ex: 200)
 - Dev and Host ID to header
@@ -1649,15 +1650,25 @@ void setup(void) {
   
     //
     //final, off-the-sequence
+    EEPROM.write(0x00, eeprom_magic);
+    WriteFloatEEPROM(0x01, T_setpoint);
+    WriteFloatEEPROM(0x05, T_setpoint_cooling);
+    WriteFloatEEPROM(0x09, T_TARGET_CWU);
+    WriteFloatEEPROM(0x0d, CWU_HYSTERESIS);
+    EEPROM.write(0x11, 0)                     // 0 - heat only (no 4way valve), 1 - heat/cooling (4way valve installed)
+    EEPROM.write(0x12, 0)                     // 0 - heating mode
+    WriteFloatEEPROM(0x15, T_EEV_setpoint);
     EEPROM.write(0x31,highByte(used_sensors)); 
     EEPROM.write(0x32,lowByte(used_sensors));  
-    EEPROM.write(0x00, eeprom_magic);
     ishuman -= 1;
   }
   T_setpoint_lastsaved = T_setpoint;
   T_setpoint_cooling_lastsaved = T_setpoint_cooling;
   T_TARGET_CWU_lastsaved = T_TARGET_CWU;
   CWU_HYSTERESIS_lastsaved = CWU_HYSTERESIS;
+  T_EEV_setpoint_lastsaved = T_EEV_setpoint;
+
+
   //s_allTsensors.setResolution(ad_Tae, 12);
   /*PrintAddr(Tae.addr);
   PrintAddr(Tbe.addr);
@@ -1692,6 +1703,7 @@ void setup(void) {
   noTone(speakerOut);
 }
 
+//----------------------------- main loop
  
 void loop(void) {  
   digitalWrite(SerialTxControl, RS485Receive);
@@ -1703,7 +1715,7 @@ void loop(void) {
       millis_last_printstats = millis_now;
     }
   #endif
-  //--------------------async fuctions start
+  //----------------------------- async fuctions start
   if (em_i == 0) {  
     supply_voltage = ReadVcc();
   }
@@ -1744,7 +1756,7 @@ void loop(void) {
   #ifdef EEV_SUPPORT
     eevise();
   #endif
-  //--------------------async fuctions END    
+  //----------------------------- async fuctions END    
   
   if ( heatpump_state == 1   &&  async_wattage > c_wattage_max  ) {
     if (  ((unsigned long)(millis_now - millis_last_heatpump_off) > POWERON_HIGHTIME )  ||  (async_wattage > c_wattage_max*3)) {
@@ -1758,7 +1770,7 @@ void loop(void) {
     }
   }
   
-  //-------------------buttons processing
+  //----------------------------- buttons processing
   #ifdef INPUTS_AS_BUTTONS
     
       z = digitalRead(BUT_LEFT);
@@ -1790,9 +1802,22 @@ void loop(void) {
       }
       
   #endif
-  //-------------------buttons processing END
+  //----------------------------- buttons processing END
+
+  //----------------------------- display
+
+  //////////////////// 1602 display
+  //A:00.0 Real:00.0//
+  //Outer:00.0      //
+  ////////////////////
+
+  //////////////////// 1604 display
+  //Aim:00.0    ....//
+  //Tin:00.0 EEV:00%//
+  //CH:00.0 DHW:00.0//
+  //Menu            //
+  ////////////////////
   
-  //-------------------display
   #if (DISPLAY == 2) || (DISPLAY == 1)
     if(  ((unsigned long)(millis_now - millis_displ_update) > millis_displ_update_interval )  ||  (millis_displ_update == 0) ) {
       //!!!EEV_ONLY SUPPORT???
@@ -1829,15 +1854,23 @@ void loop(void) {
       millis_displ_update = millis_now;
     }
   #endif
-  //-------------------display END
+  //----------------------------- display END
   
-  //-------------------check cycle
+  //----------------------------- check cycle
   if(  ((unsigned long)(millis_now - millis_prev) > millis_cycle )  ||  (millis_prev == 0) ) {
     millis_prev = millis_now;
     Get_Temperatures();  //      wdt_reset here due to 85.0'C filtration
     SaveDataEE();
+
+    //----------------------------- read important data from eeprom
+    eeprom_addr = 0x12;
+    work_mode_state = EEPROM.read(eeprom_addr);   //  Work mode: Tryb pracy: Grzanie = 0, Chłodzenie = 1 (tylko jeśli 0x11 == 1)
+    if ( work_mode_state == 1 ) {
+      eeprom_addr = 0x05;
+      T_setpoint_cooling = ReadFloatEEPROM(eeprom_addr);
+    }
   
-    //--------------------important logic
+    //----------------------------- important logic
     //check T sensors
     if ( ( errorcode == ERR_OK )     && (   (Tae.e == 1 && Tae.T == -127 )    || 
               (Tbe.e == 1 && Tbe.T == -127 )    || 
@@ -1964,7 +1997,7 @@ void loop(void) {
       */
       //v1.1 algo
       if ( errorcode == 0 && async_wattage > c_workingOK_wattage_min && EEV_cur_pos > 0 ) {
-        T_EEV_dt = Tae.T - Tbe.T; // Waldek, tu musi być IF oparty o status 4way i obsługa T_EEV_dt = Tac.T - Tbc.T
+        ( ( valve4w_state == 0 ? ( T_EEV_dt = Tae.T - Tbe.T ) : ( T_EEV_dt = Tac.T - Tbc.T ) ) )
         #ifdef EEV_DEBUG
           PrintS("EEV Td: " + String(T_EEV_dt));
         #endif
@@ -2122,17 +2155,6 @@ void loop(void) {
       // Niezależnie od trybu pracy pompy ciepła (grzanie/chłodzenie) dostęp z menu (przyciski) jest tylko do wartości T_setpoint
       // Wartość dla trybu chłodzenie jest dostępna tylko z poziomu RS/terminala. Wartość ta, o ile będzie możliwość zmiany, będzie wynosić 5-10stC 
 
-      eeprom_addr = 0x12;
-      work_mode_state = EEPROM.read(eeprom_addr);   //  Work mode: Tryb pracy: Grzanie = 0, Chłodzenie = 1 (tylko jeśli 0x11 == 1)
-      if (work_mode_state) {
-        eeprom_addr = 0x01;
-        T_setpoint_tmp = ReadFloatEEPROM(eeprom_addr);
-      } else {
-        eeprom_addr = 0x05;
-        T_setpoint_tmp = ReadFloatEEPROM(eeprom_addr);
-      }
-      
-
       // Zachować kolejność procedur!
       //
       // START pompy głębinowej
@@ -2155,7 +2177,7 @@ void loop(void) {
         ( (Tsump.e == 1   && Tsump.T > cT_sump_min)   || (Tsump.e^1)) &&
         ( (Tsump.e == 1   && Tsump.T < cT_sump_max)   || (Tsump.e^1)) &&
         //t1_sump > t2_cold_in   && ???
-        ( Ttarget.T < T_setpoint || cwu_heating_state ) &&    // ( work_mode_state == 0 ? (Ttarget.T < T_setpoint) : (Ttarget.T > T_setpoint) || cwu_heating_state )
+        ( ( work_mode_state == 0 ? (Ttarget.T < T_setpoint) : (Ttarget.T > T_setpoint_cooling ) ) || cwu_heating_state )
         ( (Tae.e == 1   && Tae.T > cT_after_evaporator_min) || (Tae.e^1)) &&
         ( (Tbc.e == 1   && Tbc.T < cT_before_condenser_max)   || (Tbc.e^1)) &&
         ( (Tci.e == 1   && Tci.T > cT_cold_min)     || (Tci.e^1)) &&

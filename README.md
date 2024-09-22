@@ -11,14 +11,17 @@ Driving:
 - EEV, 
 - Heat Pump Compressor (1kW electrical power),
 - Circulating Pumps,
-- Compressor Heater.
+- Compressor Heater,
+- Three-way valve for domestic hot water heating,
+- Four-way reversing valve for chilled water cooling.
 
 Temperature sensors installed:
 - Before/After Evaporator,
 - Cold In/Cold Out,
 - Hot In(used as Target)/Hot Out,
 - Outdoor temperature,
-- Compressor.
+- Compressor,
+- Domestic hot water tank.
 
 Controlled via both RS-485 and 16x2 display with buttons.
 
@@ -120,7 +123,7 @@ These abbreviations used in the interface during sensors installation procedure
 | Tbc | before condenser | Discharge overheat protection           |
 | Tac | after condenser |          |
 | Touter | outer (outdoor) |          |
-| Ts1 | additional sensor1 |          |
+| Tcwu | domestic hot water tank |          |
 | Ts2 | additional sensor2 |          |
 
 <br><br>

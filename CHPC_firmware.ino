@@ -538,8 +538,9 @@ bool hotside_circle_state   = 0;
 bool coldside_circle_state  = 0;
 bool sump_heater_state      = 0;
 bool valve4w_state          = 0;
-bool cwu_heating_state     = 0;  // Flaga aktywnego grzania CWU
-bool valve_cwu_position     = 0;  // Flaga pozycji zaworu (false = ogrzewanie domu, true = ogrzewanie CWU) 
+bool cwu_heating_state      = 0;  // Flaga aktywnego grzania CWU
+bool valve_cwu_position     = 0;  // Flaga pozycji zaworu (false = ogrzewanie domu, true = ogrzewanie CWU)
+bool work_mode_state        = 0;  // Flaga 0 - grzanie, 1 - chłodzenie
 
 bool relay6_state   = 0;
 bool relay7_state   = 0;
@@ -2151,9 +2152,6 @@ void loop(void) {
       // Uwaga!
       // W trybie chłodzenie pompa obiegowa górnego źródla chodzi non stop! <- Temat do zrobienia!
       //
-      // Założenia bardziej do przyjecia:
-      // Niezależnie od trybu pracy pompy ciepła (grzanie/chłodzenie) dostęp z menu (przyciski) jest tylko do wartości T_setpoint
-      // Wartość dla trybu chłodzenie jest dostępna tylko z poziomu RS/terminala. Wartość ta, o ile będzie możliwość zmiany, będzie wynosić 5-10stC 
 
       // Zachować kolejność procedur!
       //
@@ -2311,11 +2309,11 @@ void loop(void) {
         //digitalWrite(RELAY_HEATPUMP, heatpump_state); // old, now halifised
       }
 
+      //
       // Sprawdzenie warunków do rozpoczęcia grzania CWU lub wymuszenia grzania
       if (!cwu_heating_state) {
           if (Tcwe.e == 1   && Tcwu.T < 32.0) {
               // Warunek awaryjny: wymuszone grzanie, gdy Tcwu < 32°C
-              // ((unsigned long)(millis_now - millis_last_heatpump_on) > mincycle_poweroff) <- to obrobić by umożliwić start pompy ciepła bez oczekiwania, albo skrócić to oczekiwanie do 3 minut.
               cwu_heating_state = true;
               millis_cwu_heating_start = millis_now;
               valve_cwu_position = true;  // Przełączamy zawór trójdrogowy na tryb CWU
@@ -2348,7 +2346,6 @@ void loop(void) {
               PrintS(F("Ending CWU heating - temperature reached or time limit"));
           #endif
       }
-      
 
       //
       // STOP pompy ciepła po dowolnym błędzie
@@ -2385,6 +2382,20 @@ void loop(void) {
       }
 
       //
+      //  Obsługa 4way
+      //  jeśli włączone jest chłodzene i zawór 4way jest w pozycji chłodzenie i wymuszono grzanie CWU:
+      //  wyłącz sprężarke, przełącz zawór 4way, następnie odczekaj 180 sekund (3 minuty)
+      if ( work_mode_state == 1 && valve4w_state == 1 && cwu_heating_state = true ) {
+        valve4w_state = 0;
+        heatpump_state = 0;
+        millis_last_heatpump_on = (unsigned long)(millis_now - (mincycle_poweroff - 180000));   //ustawienie by pompa włączyła się za 3 minuty
+      } else if ( work_mode_state == 1 && valve4w_state == 0 && cwu_heating_state = false ) {
+        valve4w_state = 1;
+        heatpump_state = 0;
+        millis_last_heatpump_on = (unsigned long)(millis_now - (mincycle_poweroff - 180000));   //ustawienie by pompa włączyła się za 3 minuty
+      }
+
+      //
       // STOP pompy głębinowej jeżeli sprężarka == 0 i pompa_głębinowa == 1 i upłynęło od wyłączenia sprężarki 30 sekund.
       //
         //process_cold_side_pump:
@@ -2416,8 +2427,8 @@ void loop(void) {
     #ifdef RS485_HUMAN
       if (RS485Serial.available()) {
         inChar = RS485Serial.read();
-        //RS485Serial.print(inChar);  //!!!debug
-        if ( inChar == 0x1B ) {
+        //RS485Serial.print(inChar);            //!!!debug
+        if ( inChar == 0x1B ) {                 //Esc char
           skipchars += 3;
           inChar = 0x00;
           millis_escinput = millis();
@@ -2426,7 +2437,7 @@ void loop(void) {
           millis_charinput = millis();
           //if (millis_escinput + 2 > millis_charinput)
           if ((unsigned long)(millis_charinput - millis_escinput) < 16*2 ) {  //2 chars for 2400
-            if (inChar != 0x7e) {
+            if (inChar != 0x7e) {               // ~ char
               skipchars -= 1;
             }
             if (inChar == 0x7e) {
@@ -2442,38 +2453,43 @@ void loop(void) {
         }
       
         //- RS485_HUMAN: remote commands +,-,G,0x20/?/Enter
-        // Waldek,
+        // Waldek:
+        // Założenia bardziej do przyjęcia:
         // należy dodać możliwość zmiany temperatury docelowej CWU
-        // należy dodać możliwość przełączenia grzanie/chłodzenie (tylko jeśli sprężarka jest wyłączona, pamiętaj o konieczności stosowania warunku Tdocelowy grzanie[większy niż]/chłodzenie[mnejszy niż])
+        // należy dodać możliwość przełączenia grzanie/chłodzenie (tylko jeśli sprężarka jest wyłączona
+        // niezależnie od trybu pracy pompy ciepła (grzanie/chłodzenie) dostęp z menu (przyciski) jest tylko do wartości T_setpoint
+        // wartość dla trybu chłodzenie jest dostępna tylko z poziomu RS/terminala. Wartość ta, o ile będzie możliwość zmiany, będzie wynosić 5-10stC
+        //
+        //
         switch (inChar) {
           case 0x00:
             break;
-          case 0x20:
+          case 0x20:      //Space
             _PrintHelp();
             break;
-          case 0x3F:
+          case 0x3F:      //?
             _PrintHelp();
             break;
-          case 0x0D:
+          case 0x0D:      //CR
             _PrintHelp();
             break;
-          case 0x2B:
+          case 0x2B:      //+
             Inc_T();
             break;
-          case 0x2D:
+          case 0x2D:      //-
             Dec_T();
             break;
-          case 0x3C:
+          case 0x3C:      //<
             Dec_E();
             break;
-          case 0x3E:
+          case 0x3E:      //>
             Inc_E();
             break;
           case 0x47:
-            PrintStats_Serial();
+            PrintStats_Serial();  //G
             break;
           case 0x67:
-            PrintStats_Serial();
+            PrintStats_Serial();  //g
             break;
           }
       }
@@ -2606,7 +2622,7 @@ void loop(void) {
             outString += ",\"EEVA\":" + String(T_EEV_setpoint);
           #endif
           outString += "}";
-        } else if ( (inData[2] == 0x54 ) || (inData[2] == 0x45 )) {  //(T)arget or (E)EV target format NN.NN, text
+        } else if ( (inData[2] == 0x54 ) || (inData[2] == 0x45 )) {  //(T)arget or (E)EV target format NN.NN, text, Waldek: dopisać obsługę T_setpoint_cooling, T_TARGET_CWU, CWU_HYSTERESIS, T_EEV_setpoint, (0x12) Work mode
           if ( isDigit(inData[ 3 ]) && isDigit(inData[ 4 ]) && (inData[ 5 ] == 0x2e)  && isDigit(inData[ 6 ]) && isDigit(inData[ 7 ]) && ( ! isDigit(inData[ 8 ])) ) {
             
             tone(speakerOut, 2250);

@@ -43,8 +43,8 @@ Controlled via both RS-485 and 16x2 display with buttons.
   - added possibility to heat domestic hot water (three-way valve needed)
   - [RELAY_SUMP_HEATER] relay controls [valve_cwu_position] ATTENTION!!!!! No sump heating in this!!!!! The heat pump must stand in a room with a minimum temperature of 10 degrees Celsius!!!!!
   - [T_TARGET_CWU] was moved to eeprom, [CWU_INTERVAL] - every how many hours in milliseconds to start a water heating cycle, [CWU_MAX_HEATING_TIME] - how many hours in milliseconds to heat water in one cycle
-- added [CWU_HYSTERESIS] and moved to eeprom
-- transferred [T_EEV_setpoint] to eeprom
+  - added [CWU_HYSTERESIS] and moved to eeprom
+  - transferred [T_EEV_setpoint] to eeprom
 <br><br>
 ## Applications:
 | Usage. |	Brief description. | 	Application examples	| Available protections	|

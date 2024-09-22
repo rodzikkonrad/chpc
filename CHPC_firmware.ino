@@ -53,7 +53,6 @@
 #define T_COLD_MIN              2.0;        //cold loop anti-freeze: stop if inlet or outlet temperature lower  //zmiana z -8.0;
 #define T_HOTOUT_MAX            55.0;       //hot loop: stop if outlet temperature higher than this //50.0
 #define T_WORKINGOK_SUMP_MIN    24.0;       //compressor MIN temperature, HP stops if it lower after 5 minutes of pumping, need to be not very high to normal start after deep freeze
-#define CWU_HYSTERESIS          2.0;        //histereza dla pracy CWU
 
 //-----------------------TUNING OPTIONS -----------------------
 #define MAX_WATTS               1230.0      //user for power protection
@@ -507,7 +506,7 @@ unsigned int used_sensors = 0 ;         //bit array
 double T_setpoint                       = 21.5;
 double T_setpoint_lastsaved             = T_setpoint;
 double T_setpoint_cooling               = 7.0;
-double T_setpoint_coolingt_lastsaved    = T_setpoint_cooling;
+double T_setpoint_cooling_lastsaved    = T_setpoint_cooling;
 double T_TARGET_CWU                     = 40.0;
 double T_TARGET_CWU_lastsaved           = T_TARGET_CWU;
 double CWU_HYSTERESIS                   = 2.0;
@@ -570,6 +569,9 @@ unsigned long millis_cycle  = 1000;
 
 unsigned long millis_last_heatpump_on  = 0;
 unsigned long millis_last_heatpump_off = 0;
+
+unsigned long millis_cwu_heating_start = 0;
+unsigned long millis_last_cwu_heating = 0;
 
 unsigned long millis_last_coldside_off = 0;
 unsigned long compressor_runtime = 0;
@@ -1483,6 +1485,7 @@ void setup(void) {
   // tr_sens_2(12);
   
   eeprom_addr = 0x00;
+  //EEPROM.write(0x00, 0x00); // Do not touch!
   if (eeprom_magic_read == eeprom_magic) {
     eeprom_addr = 0x01;
     T_setpoint = ReadFloatEEPROM(eeprom_addr);
@@ -1501,7 +1504,7 @@ void setup(void) {
 
     //PrintS_and_D("EEPROM->T " + String(T_setpoint));
     
-    eeprom_addr = 0x31
+    eeprom_addr = 0x31;
     z = EEPROM.read(eeprom_addr);  //high
     eeprom_addr += 1;
     i = EEPROM.read(eeprom_addr);  //lo
@@ -1656,8 +1659,8 @@ void setup(void) {
     WriteFloatEEPROM(0x05, T_setpoint_cooling);
     WriteFloatEEPROM(0x09, T_TARGET_CWU);
     WriteFloatEEPROM(0x0d, CWU_HYSTERESIS);
-    EEPROM.write(0x11, 0)                     // 0 - heat only (no 4way valve), 1 - heat/cooling (4way valve installed)
-    EEPROM.write(0x12, 0)                     // 0 - heating mode
+    EEPROM.write(0x11, 0);                    // 0 - heat only (no 4way valve), 1 - heat/cooling (4way valve installed)
+    EEPROM.write(0x12, 0);                    // 0 - heating mode
     WriteFloatEEPROM(0x15, T_EEV_setpoint);
     EEPROM.write(0x31,highByte(used_sensors)); 
     EEPROM.write(0x32,lowByte(used_sensors));  
@@ -1998,7 +2001,7 @@ void loop(void) {
       */
       //v1.1 algo
       if ( errorcode == 0 && async_wattage > c_workingOK_wattage_min && EEV_cur_pos > 0 ) {
-        ( ( valve4w_state == 0 ? ( T_EEV_dt = Tae.T - Tbe.T ) : ( T_EEV_dt = Tac.T - Tbc.T ) ) )
+        T_EEV_dt = (valve4w_state == 0) ? (Tae.T - Tbe.T) : (Tac.T - Tbc.T);
         #ifdef EEV_DEBUG
           PrintS("EEV Td: " + String(T_EEV_dt));
         #endif
@@ -2175,7 +2178,7 @@ void loop(void) {
         ( (Tsump.e == 1   && Tsump.T > cT_sump_min)   || (Tsump.e^1)) &&
         ( (Tsump.e == 1   && Tsump.T < cT_sump_max)   || (Tsump.e^1)) &&
         //t1_sump > t2_cold_in   && ???
-        ( ( work_mode_state == 0 ? (Ttarget.T < T_setpoint) : (Ttarget.T > T_setpoint_cooling ) ) || cwu_heating_state )
+        ( ( work_mode_state == 0 ? (Ttarget.T < T_setpoint) : (Ttarget.T > T_setpoint_cooling ) ) || cwu_heating_state ) &&
         ( (Tae.e == 1   && Tae.T > cT_after_evaporator_min) || (Tae.e^1)) &&
         ( (Tbc.e == 1   && Tbc.T < cT_before_condenser_max)   || (Tbc.e^1)) &&
         ( (Tci.e == 1   && Tci.T > cT_cold_min)     || (Tci.e^1)) &&
@@ -2312,7 +2315,7 @@ void loop(void) {
       //
       // Sprawdzenie warunków do rozpoczęcia grzania CWU lub wymuszenia grzania
       if (!cwu_heating_state) {
-          if (Tcwe.e == 1   && Tcwu.T < 32.0) {
+          if (Tcwu.e == 1   && Tcwu.T < 32.0) {
               // Warunek awaryjny: wymuszone grzanie, gdy Tcwu < 32°C
               cwu_heating_state = true;
               millis_cwu_heating_start = millis_now;
@@ -2385,11 +2388,11 @@ void loop(void) {
       //  Obsługa 4way
       //  jeśli włączone jest chłodzene i zawór 4way jest w pozycji chłodzenie i wymuszono grzanie CWU:
       //  wyłącz sprężarke, przełącz zawór 4way, następnie odczekaj 180 sekund (3 minuty)
-      if ( work_mode_state == 1 && valve4w_state == 1 && cwu_heating_state = true ) {
+      if ( work_mode_state == 1 && valve4w_state == 1 && cwu_heating_state == true ) {
         valve4w_state = 0;
         heatpump_state = 0;
         millis_last_heatpump_on = (unsigned long)(millis_now - (mincycle_poweroff - 180000));   //ustawienie by pompa włączyła się za 3 minuty
-      } else if ( work_mode_state == 1 && valve4w_state == 0 && cwu_heating_state = false ) {
+      } else if ( work_mode_state == 1 && valve4w_state == 0 && cwu_heating_state == false ) {
         valve4w_state = 1;
         heatpump_state = 0;
         millis_last_heatpump_on = (unsigned long)(millis_now - (mincycle_poweroff - 180000));   //ustawienie by pompa włączyła się za 3 minuty

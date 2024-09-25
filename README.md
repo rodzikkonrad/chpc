@@ -32,7 +32,7 @@ Controlled via both RS-485 and 16x2 display with buttons.
 - 01 May, 2019: CHPC fully tested and released
 - 02 May, 2019: PCB rev.1.3 coming up, main feature: a lot of DS18B20 inputs
 - 17 May, 2019: <b>PCB 1.3 tested, [assembly instructions added](https://github.com/gonzho000/chpc/wiki/assembly)</b>
-- 24Nov 2022: (Waldek)
+- 24 Nov 2022: (Waldek)
   - added half-steps to the EEV increasing accuracy
   - delay added, Cold WP turns on first and compressor turns on later
   - same when the compressor is turned off, after [COMPRESSOR_DELAY] shuts down Cold WP

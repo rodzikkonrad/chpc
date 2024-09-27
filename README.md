@@ -2,7 +2,7 @@
 <b>The CHPC a minimal cost Heat Pump (HP) controller, which can be used as provided, or can be adopted to nearly all use cases due to open source nature.</b>
 <br><br>
 <b>Note that the program in the current version, but still unfinished, occupies more than 110% of the Flash memory of the Arduino Pro mini.
-Therefore, I have divided [depending on the FIRST_USE directive] the program into a part for programming the Dallas thermoments and a program for operating the heat pump.<br>
+Therefore, I have divided [depending on the FIRST_USE directive] the program into a part for programming the Dallas thermoments and a program for operating the heat pump.<br><br>
 Procedure: first program the Dallas thermometers by setting the [FIRST_USE] directive. After programming the thermometers, the [FIRST_USE] directive should be commented out and the Arduino Pro mini should be programmed again. This will free up more than 3kB of Flash memory!</b> (Waldek)
 <br><br>
 

@@ -6,8 +6,6 @@ Therefore, I have divided [depending on the FIRST_USE directive] the program int
 Procedure: first program the Dallas thermometers by setting the [FIRST_USE] directive. After programming the thermometers, the [FIRST_USE] directive should be commented out and the Arduino Pro mini should be programmed again. This will free up more than 3kB of Flash memory!</b> (Waldek)
 <br><br>
 
-Translated with DeepL.com (free version)
-
 ## Real life installation.
 Works from ground heat collectors (loops) to radiant in-floor heating system.
 

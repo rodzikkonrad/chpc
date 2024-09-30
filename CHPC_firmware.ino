@@ -36,6 +36,8 @@
 #define RS485_HUMAN             2
 //#define RS485_NONE            3
 
+#define CWU_SUPPORT                         //Domestic hot water tank
+
 #define EEV_SUPPORT
 //#define EEV_ONLY                          //NO target, no relays. Oly EEV, Tae, Tbe, current sensor and may be additional T sensors
 
@@ -62,12 +64,12 @@
 
 #define POWERON_PAUSE           90000       //5 mins //300000
 #define COMPRESSOR_DELAY        45000       //45 seconds, Cold WP starts first and the compressor after that
-#define COLD_WP_DELAY           60000       //1 mins.
+#define COLD_WP_DELAY           30000       //!!!!!!!!!!!!!!!!!! 60000       //1 mins.
 #define MINCYCLE_POWEROFF       900000      //15 mins                //zmiana z 300000
-#define MINCYCLE_POWERON        600000      //10 mins
+#define MINCYCLE_POWERON        60000       //!!!!!!!!!!!!!!!!!! 600000      //10 mins
 #define POWERON_HIGHTIME        10000       //10 sec, defines time after start when power consumption can be 2 times greater than normal
 
-//CWU
+//CWU DHW 
 #define CWU_INTERVAL            7200000     //2 godziny w milisekundach
 #define CWU_MAX_HEATING_TIME    3600000     //1 godzina w milisekundach
 
@@ -291,7 +293,7 @@
 
 */
 
-String fw_version = "1.6";
+String fw_version = "1.8W";
 
 #ifdef DISPLAY_096
 #define DISPLAY DISPLAY_096
@@ -555,6 +557,7 @@ bool _1st_start_sleeped     = 0;
 //const long floor_circle_maxhalted = 6000000;  //circle NOT works max 100 minutes
 const long deffered_stop_hotcircle = DEFFERED_STOP_HOTCIRCLE;
 
+float percentage_eev;
 int EEV_cur_pos   = 0;
 int EEV_apulses   = 0;    //for async
 bool EEV_adonotcare = 0;
@@ -817,12 +820,17 @@ void Print_D2 () {
 }
 
 void _PrintHelp(void) {
-  PrintS( "CHPC, https://github.com/gonzho000/chpc/ fw: " + fw_version  + " board: " + hw_version);
-  PrintS(F("Commands: \n (?) help\n (+) increase aim T\n (-) decrease aim T\n \n"));
-#ifdef EEV_SUPPORT
-  PrintS(F("(<) decrease EEV T diff \n(>) increase EEV T diff"));
+  PrintS( "Oryginal CHPC, https://github.com/gonzho000/chpc/");
+  PrintS( "Forked CHPC, https://github.com/WaldemarPachol/chpc fw: " + fw_version  + " board: " + hw_version);
+  PrintS(F("Commands: \n (?) help\n (+) increase aim T\n (-) decrease aim T\n"));
+#ifdef  CWU_SUPPORT
+  PrintS(F(" [(] increase aim T_CWU\n [)] decrease aim T_CWU\n"));
+  PrintS(F(" [&] increase hysteresis T_CWU\n [*] decrease hysteresis T_CWU\n"));
 #endif
-  PrintS(F("(G) get stats"));
+#ifdef EEV_SUPPORT
+  PrintS(F(" (<) decrease EEV T diff\n (>) increase EEV T diff\n"));
+#endif
+  PrintS(F(" (G) get stats"));
 }
 
 void PrintS_and_D_double (double double_to_print) {
@@ -863,6 +871,52 @@ int Dec_E (void) {    ///!!!!!! unprotected
   PrintS_and_D_double(T_EEV_setpoint);
   return 1;
 }
+
+#ifdef CWU_SUPPORT
+int Inc_T_cwu (void) {
+  if (T_TARGET_CWU + 0.5 > 50.0) {
+    PrintS_and_D(F("Max!"));
+    delay (200);
+    return 0;
+  }
+  T_TARGET_CWU += 0.5;
+  PrintS_and_D_double(T_TARGET_CWU);
+  return 1;
+}
+
+int Dec_T_cwu (void) {
+  if (T_TARGET_CWU - 0.5 < 30.0) {
+    PrintS_and_D(F("Min!"));
+    delay (200);
+    return 0;
+  }
+  T_TARGET_CWU -= 0.5;
+  PrintS_and_D_double(T_TARGET_CWU);
+  return 1;
+}
+
+int Inc_T_hys (void) {
+  if (CWU_HYSTERESIS + 0.5 > 10.0) {
+    PrintS_and_D(F("Max!"));
+    delay (200);
+    return 0;
+  }
+  CWU_HYSTERESIS += 0.5;
+  PrintS_and_D_double(CWU_HYSTERESIS);
+  return 1;
+}
+
+int Dec_T_hys (void) {
+  if (CWU_HYSTERESIS - 0.5 < 0.0) {
+    PrintS_and_D(F("Min!"));
+    delay (200);
+    return 0;
+  }
+  CWU_HYSTERESIS -= 0.5;
+  PrintS_and_D_double(CWU_HYSTERESIS);
+  return 1;
+}
+#endif
 
 void print_Serial_SaD (double num) {  //global string + double
   RS485Serial.print(outString);
@@ -917,10 +971,12 @@ void PrintStats_Serial (void) {
     outString = "Touter: " ;
     print_Serial_SaD(Touter.T);
   }
+  #ifdef CWU_SUPPORT
   if (Tcwu.e == 1)   {
     outString = "Tcwu: "  ;
     print_Serial_SaD(Tcwu.T);
   }
+  #endif
   if (Ts2.e == 1)   {
     outString = "Ts2: "  ;
     print_Serial_SaD(Ts2.T);
@@ -998,6 +1054,7 @@ void SaveDataEE(void) {
       WriteFloatEEPROM(eeprom_addr, T_setpoint_cooling);
       T_setpoint_cooling_lastsaved = T_setpoint_cooling;
     }
+    #ifdef CWU_SUPPORT
     if (T_TARGET_CWU_lastsaved != T_TARGET_CWU) {
       eeprom_addr = 0x09;
       WriteFloatEEPROM(eeprom_addr, T_TARGET_CWU);
@@ -1008,6 +1065,7 @@ void SaveDataEE(void) {
       WriteFloatEEPROM(eeprom_addr, T_TARGET_CWU);
       CWU_HYSTERESIS_lastsaved = CWU_HYSTERESIS;
     }
+    #endif
     if (T_EEV_setpoint_lastsaved != T_EEV_setpoint) {
       eeprom_addr = 0x0d;
       WriteFloatEEPROM(eeprom_addr, T_EEV_setpoint);
@@ -1424,6 +1482,8 @@ void setup(void) {
   delay(100);
   PrintS_and_D("ID: 0x" + String(devID, HEX));
   //Print_Lomem(C_ID);
+  outString = "Please wait...";
+  Print_D2();
   delay(200);
 #ifdef EEV_SUPPORT
   pinMode (EEV_1,   OUTPUT);
@@ -1885,14 +1945,14 @@ void loop(void) {
   //----------------------------- display
 
   //////////////////// 1602 display
-  //A:00.0 Real:00.0//
-  //Outer:00.0      //
+  //A:00.0←Real:00.0//
+  //Out:00.0 #:00.0%//
   ////////////////////
 
   //////////////////// 1604 display
-  //Aim:00.0    ....//
-  //Tin:00.0 EEV:00%//
-  //CH:00.0 DHW:00.0//
+  //Aim:00.0    ....//  Aim_temp
+  //Tin:00.0 #:00.0%//  Temp_in, EEV%
+  //CH:00.0 DHW:00.0//  Central_heating_temp, Domestic_hot_water_temp
   //Menu            //
   ////////////////////
 
@@ -1913,10 +1973,16 @@ void loop(void) {
     //  outString = "Tbe:" + String(Tbe.T, 1) + "Tae:" + String(Tbe.T, 1);
     //  Print_D2();
     //#endif
+
+    outString = "";   //  Nowa linia
     if (Touter.e == 1) {
-      outString = "Outer:" + String(Touter.T, 1);
-      Print_D2();
+      outString += "Out:" + String(Touter.T, 1) + " ";
     }
+  #ifdef  EEV_SUPPORT
+    percentage_eev = ( EEV_cur_pos * 99.0 ) / 500.0;    // for int 0 - 99%
+    outString += "#:" + String ( percentage_eev, 1 ) + "%";
+  #endif
+    Print_D2();
 #else
     outString = "be:";
     if (Tbe.e == 1) {
@@ -2212,8 +2278,8 @@ void loop(void) {
       halifise();
     }
 
-
-
+    // Tu wstawić warunek kompilacji
+    // 
     //main logic
     if (_1st_start_sleeped == 0) {
       //PrintS_and_D("!!!!sleep disabled!!!!");
@@ -2266,12 +2332,13 @@ void loop(void) {
     }
 
     //
-    // STOP pompy ciepła jesli Ttarget osiągnęło T_setpoint
-    // oraz jeśli grzanie CWU nie jest aktywne lub jeśli musimy zatrzymać CWU grzanie
+    // STOP pompy ciepła jeśli Ttarget osiągnęło T_setpoint
+    // oraz jeśli grzanie CWU nie jest aktywne lub jeśli musimy zatrzymać CWU grzanie 
     //
     //stop if
     //    ( (last_off > N) and (t watertank > target) )
-    if ( heatpump_state == 1     &&     ((unsigned long)(millis_now - millis_last_heatpump_off) > mincycle_poweron)    &&    (Ttarget.T > T_setpoint && !cwu_heating_state) ) {
+    if ( heatpump_state == 1     &&     ((unsigned long)(millis_now - millis_last_heatpump_off) > mincycle_poweron)    &&
+    ( ( work_mode_state == 0 ? (Ttarget.T > T_setpoint) : (Ttarget.T < T_setpoint_cooling ) ) &&  !cwu_heating_state) ) {    //sprawdzamy warunki dla grzanie/chłodzenie
 #ifdef RS485_HUMAN
       PrintS(F("Normal Compressor stop"));
 #endif
@@ -2386,22 +2453,23 @@ void loop(void) {
       //digitalWrite(RELAY_HEATPUMP, heatpump_state); // old, now halifised
     }
 
+#ifdef  CWU_SUPPORT
     //
     // Sprawdzenie warunków do rozpoczęcia grzania CWU lub wymuszenia grzania
     if (!cwu_heating_state) {
       if (Tcwu.e == 1   && Tcwu.T < 32.0) {
         // Warunek awaryjny: wymuszone grzanie, gdy Tcwu < 32°C
-        cwu_heating_state = true;
+        cwu_heating_state = true;   // Status granie CWU włączone
         millis_cwu_heating_start = millis_now;
         valve_cwu_position = true;  // Przełączamy zawór trójdrogowy na tryb CWU
 
-#ifdef RS485_HUMAN
+#ifdef  RS485_HUMAN
         PrintS(F("Emergency CWU heating started"));
 #endif
 
       } else if ((millis_now - millis_last_cwu_heating > CWU_INTERVAL) && (Tcwu.e == 1   && Tcwu.T < T_TARGET_CWU - CWU_HYSTERESIS)) {
         // Normalne grzanie: jeśli minęły co najmniej 2 godziny od ostatniego grzania i Tcwu < T_TARGET_CWU - CWU_HYSTERESIS
-        cwu_heating_state = true;
+        cwu_heating_state = true;   // Status granie CWU włączone
         millis_cwu_heating_start = millis_now;
         valve_cwu_position = true;  // Przełączamy zawór trójdrogowy na tryb CWU
 
@@ -2415,7 +2483,7 @@ void loop(void) {
     // lub czy temperatura CWU osiągnęła 40°C
     if (cwu_heating_state && ((millis_now - millis_cwu_heating_start > CWU_MAX_HEATING_TIME) || (Tcwu.e == 1   && Tcwu.T >= T_TARGET_CWU + CWU_HYSTERESIS))) {
       // Zakończ grzanie CWU po godzinie lub jeśli Tcwu >= T_TARGET_CWU + CWU_HYSTERESIS
-      cwu_heating_state = false;
+      cwu_heating_state = false;    // Status granie CWU wyłączone
       millis_last_cwu_heating = millis_now;  // Zapisujemy czas zakończenia grzania
       valve_cwu_position = false;  // Przełączamy zawór trójdrogowy z powrotem na ogrzewanie domu
 
@@ -2423,6 +2491,7 @@ void loop(void) {
       PrintS(F("Ending CWU heating - temperature reached or time limit"));
 #endif
     }
+#endif
 
     //
     // STOP pompy ciepła po dowolnym błędzie
@@ -2463,11 +2532,11 @@ void loop(void) {
     //  jeśli włączone jest chłodzene i zawór 4way jest w pozycji chłodzenie i wymuszono grzanie CWU:
     //  wyłącz sprężarke, przełącz zawór 4way, następnie odczekaj 180 sekund (3 minuty)
     if ( work_mode_state == 1 && valve4w_state == 1 && cwu_heating_state == true ) {
-      valve4w_state = 0;
+      valve4w_state = 0;    // Przełączenie zaworu 4way na grzanie
       heatpump_state = 0;
       millis_last_heatpump_on = (unsigned long)(millis_now - (mincycle_poweroff - 180000));   //ustawienie by pompa włączyła się za 3 minuty
     } else if ( work_mode_state == 1 && valve4w_state == 0 && cwu_heating_state == false ) {
-      valve4w_state = 1;
+      valve4w_state = 1;    // Przełączenie zaworu 4way na chlodzenie
       heatpump_state = 0;
       millis_last_heatpump_on = (unsigned long)(millis_now - (mincycle_poweroff - 180000));   //ustawienie by pompa włączyła się za 3 minuty
     }
@@ -2532,7 +2601,7 @@ void loop(void) {
       //- RS485_HUMAN: remote commands +,-,G,0x20/?/Enter
       // Waldek:
       // Założenia bardziej do przyjęcia:
-      // należy dodać możliwość zmiany temperatury docelowej CWU
+      // [zrobiono] należy dodać możliwość zmiany temperatury docelowej CWU
       // należy dodać możliwość przełączenia grzanie/chłodzenie (tylko jeśli sprężarka jest wyłączona
       // niezależnie od trybu pracy pompy ciepła (grzanie/chłodzenie) dostęp z menu (przyciski) jest tylko do wartości T_setpoint
       // wartość dla trybu chłodzenie jest dostępna tylko z poziomu RS/terminala. Wartość ta, o ile będzie możliwość zmiany, będzie wynosić 5-10stC
@@ -2556,6 +2625,20 @@ void loop(void) {
         case 0x2D:      //-
           Dec_T();
           break;
+#ifdef  CWU_SUPPORT
+        case 0x28:      //(     T_TARGET_CWU
+          Dec_T_cwu();
+          break;
+        case 0x29:      //)     T_TARGET_CWU
+          Inc_T_cwu();
+          break;
+        case 0x26:      //&     CWU_HYSTERESIS
+          Dec_T_hys();
+          break;
+        case 0x2a:      //*     CWU_HYSTERESIS
+          Inc_T_hys();
+          break;
+#endif
         case 0x3C:      //<
           Dec_E();
           break;

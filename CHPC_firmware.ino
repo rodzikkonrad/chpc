@@ -1064,7 +1064,7 @@ void SaveDataEE(void) {
     }
     if (CWU_HYSTERESIS_lastsaved != CWU_HYSTERESIS) {
       eeprom_addr = 0x0d;
-      WriteFloatEEPROM(eeprom_addr, T_TARGET_CWU);
+      WriteFloatEEPROM(eeprom_addr, CWU_HYSTERESIS);
       CWU_HYSTERESIS_lastsaved = CWU_HYSTERESIS;
     }
     #endif

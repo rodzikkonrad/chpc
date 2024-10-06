@@ -58,16 +58,16 @@
 #define T_WORKINGOK_SUMP_MIN    24.0;       //compressor MIN temperature, HP stops if it lower after 5 minutes of pumping, need to be not very high to normal start after deep freeze
 
 //-----------------------TUNING OPTIONS -----------------------
-#define MAX_WATTS               1230.0      //user for power protection
+#define MAX_WATTS               3000.0      //user for power protection
 
 #define DEFFERED_STOP_HOTCIRCLE 3000000     //50 mins
 
 #define POWERON_PAUSE           90000       //5 mins //300000
 #define COMPRESSOR_DELAY        45000       //45 seconds, Cold WP starts first and the compressor after that
-#define COLD_WP_DELAY           30000       //!!!!!!!!!!!!!!!!!! 60000       //1 mins.
+#define COLD_WP_DELAY           60000       //1 mins.
 #define MINCYCLE_POWEROFF       900000      //15 mins                //zmiana z 300000
-#define MINCYCLE_POWERON        60000       //!!!!!!!!!!!!!!!!!! 600000      //10 mins
-#define POWERON_HIGHTIME        10000       //10 sec, defines time after start when power consumption can be 2 times greater than normal
+#define MINCYCLE_POWERON        600000      //10 mins
+#define POWERON_HIGHTIME        20000       //10 sec, defines time after start when power consumption can be 2 times greater than normal
 
 //CWU DHW 
 #define CWU_INTERVAL            7200000     //2 godziny w milisekundach
@@ -77,17 +77,17 @@
 #define EEV_MAXPULSES           500
 
 #define EEV_PULSE_FCLOSE_MILLIS 20          //fast close, set waiting pos., close on danger
-#define EEV_PULSE_CLOSE_MILLIS  15000       //precise close         //zmiana z 50000 
+#define EEV_PULSE_CLOSE_MILLIS  3000       //precise close         //zmiana z 50000 
 #define EEV_PULSE_WOPEN_MILLIS  20          //waiting pos. set
-#define EEV_PULSE_FOPEN_MILLIS  1300        //fast open, fast search //zmiana z 1300
-#define EEV_PULSE_OPEN_MILLIS   20000       //precise open          //zmiana z 60000
+#define EEV_PULSE_FOPEN_MILLIS  2000        //fast open, fast search //zmiana z 1300
+#define EEV_PULSE_OPEN_MILLIS   6000       //precise open          //zmiana z 60000
 
 #define EEV_STOP_HOLD           500       //0.1..1sec for Sanhua
 #define EEV_CLOSE_ADD_PULSES    8         //read below, close algo
-#define EEV_OPEN_AFTER_CLOSE    56        //0 - close to zero position, than close on EEV_CLOSE_ADD_PULSES (close insurance, read EEV manuals for this value)
+#define EEV_OPEN_AFTER_CLOSE    58        //0 - close to zero position, than close on EEV_CLOSE_ADD_PULSES (close insurance, read EEV manuals for this value)
 //N - close to zero position, than close on EEV_CLOSE_ADD_PULSES, than open on EEV_OPEN_AFTER_CLOSE pulses
 //i.e. it is "waiting position" while HP not working
-#define EEV_MINWORKPOS          52        //position will be not less during normal work, set after compressor start
+#define EEV_MINWORKPOS          120        //position will be not less during normal work, set after compressor start
 #define EEV_PRECISE_START       8.6       //T difference, threshold: make slower pulses if (real_diff-target_diff) less than this value. Used for fine auto-tuning.     //zmiana z 8.6
 #define EEV_EMERG_DIFF          3.5       //zmiana z 2.5     //if dangerous condition:  real_diff =< (target_diff - EEV_EMERG_DIFF) occured then EEV will be closed to min. work position //Ex: EEV_EMERG_DIFF = 2.0, target diff 5.0, if real_diff =< (5.0 - 2.0) than EEV will be closed
 #define EEV_HYSTERESIS          0.6       //must be less than EEV_PRECISE_START, ex: target difference = 4.0, hysteresis = 0.1, when difference in range 4.0..4.1 no EEV pulses will be done; 
@@ -160,6 +160,8 @@
   - [T_TARGET_CWU] was moved to eeprom, [CWU_INTERVAL] - every how many hours in milliseconds to start a water heating cycle, [CWU_MAX_HEATING_TIME] - how many hours in milliseconds to heat water in one cycle
   - added [CWU_HYSTERESIS] and moved to eeprom
   - transferred [T_EEV_setpoint] to eeprom
+  - overload error handling
+  - lack of start handling
 
   //TODO:
   - establish the procedure for going from cooling to DHW heating (compressor stop, pause 60 seconds, switch the four-way valve and DHW, pause 60 seconds, start the compressor). The same in the other direction.
@@ -533,7 +535,7 @@ const double cT_hotout_max      = T_HOTOUT_MAX;
 const double cT_workingOK_sump_min  = T_WORKINGOK_SUMP_MIN;         //need to be not very high to normal start after deep freeze
 const double c_wattage_max    = MAX_WATTS;    //FUNAI: 1000W seems to be normal working wattage INCLUDING 1(one) CR25/4 at 3rd speed
 //PH165X1CY : 920 Watts, 4.2 A
-const double c_workingOK_wattage_min  = c_wattage_max / 3.5;   // zmiana z 2.5
+const double c_workingOK_wattage_min  = c_wattage_max / 2.5;   // zmiana z 2.5
 
 bool heatpump_state         = 0;
 bool hotside_circle_state   = 0;
@@ -1067,7 +1069,7 @@ void SaveDataEE(void) {
     }
     #endif
     if (T_EEV_setpoint_lastsaved != T_EEV_setpoint) {
-      eeprom_addr = 0x0d;
+      eeprom_addr = 0x15;
       WriteFloatEEPROM(eeprom_addr, T_EEV_setpoint);
       T_EEV_setpoint_lastsaved = T_EEV_setpoint;
     }
@@ -1711,6 +1713,13 @@ void setup(void) {
       }
     */
   } else {
+ #ifndef FIRST_USE
+      PrintS_and_D("MAGIC incorrect");
+      while (1) {
+        PrintS_and_D("MAGIC incorrect or damaged eeprom!");
+        delay (1000);
+      }
+ #endif
  #ifdef FIRST_USE
     eeprom_addr += 1;
     ishuman += 1;
@@ -1901,11 +1910,23 @@ void loop(void) {
 #ifdef RS485_HUMAN
       PrintS(("Overload." + String(async_wattage)));
 #endif
-      millis_last_heatpump_on = millis_now;
+      compressor_runtime = (unsigned long)(millis_now + 180000UL);   //ustawienie by pompa włączyła się za 3 minuty po wystąpieniu błędu Overload;
       heatpump_state = 0;
       halifise();
       //digitalWrite(RELAY_HEATPUMP, heatpump_state); //old, now halifised
     }
+  }
+
+  //----------------------------- Lack of start
+
+  if ( heatpump_state == 1   &&  async_wattage < c_wattage_max / 3  &&  ((unsigned long)(millis_now) > compressor_runtime + 2000 )  ) {
+#ifdef RS485_HUMAN
+    PrintS("Lack of start, waiting...");
+#endif
+    compressor_runtime = (unsigned long)(millis_now + 180000UL);   //ustawienie by pompa włączyła się za 3 minuty;
+    heatpump_state = 0;
+    halifise();
+
   }
 
   //----------------------------- buttons processing
@@ -2265,6 +2286,7 @@ void loop(void) {
 #endif
     //-------------- EEV cycle END
 
+#ifndef FIRST_USE
 #ifndef EEV_ONLY
     //process heatpump sump heater
     if (Tsump.e == 1) {
@@ -2519,7 +2541,7 @@ void loop(void) {
     //          and COLD WP has been working for COMPRESSOR_DELAY miliseconds
     //          and (millis_last_heatpump_on != millis_now) // <- zwraca TRUE jeśli kompresor jest wyłączony (zabezpieczenie przed ponownym uruchomieniem (heatpump_state = 1) gdy zatrzymanie wynikło z: [ STOP pompy ciepła jesli Ttarget osiągnęło T_setpoint ] -> tam jest ustawiane: millis_last_heatpump_on = millis_now)
     //if (  (heatpump_state == 0)   &&  (coldside_circle_state  == 1)  &&  ((unsigned long)(millis_now - millis_last_coldside_off) > COMPRESSOR_DELAY)   &&   ((unsigned long)millis_last_heatpump_on != millis_now) ) {
-    if (  ( errorcode == ERR_OK )  &&   (heatpump_state == 0)   &&  (coldside_circle_state  == 1)  &&  (compressor_runtime > cold_wp_runtime)  &&  (millis_now > compressor_runtime)  )  {
+    if ( ( errorcode == ERR_OK )  &&   (heatpump_state == 0)   &&  (coldside_circle_state  == 1)  &&  (compressor_runtime > cold_wp_runtime)  &&  (millis_now > compressor_runtime) )  {
 #ifdef RS485_HUMAN
       PrintS(F("Compressor Start"));
 #endif
@@ -2534,11 +2556,13 @@ void loop(void) {
     if ( work_mode_state == 1 && valve4w_state == 1 && cwu_heating_state == true ) {
       valve4w_state = 0;    // Przełączenie zaworu 4way na grzanie
       heatpump_state = 0;
-      millis_last_heatpump_on = (unsigned long)(millis_now - (mincycle_poweroff - 180000));   //ustawienie by pompa włączyła się za 3 minuty
+      // millis_last_heatpump_on = (unsigned long)(millis_now - (mincycle_poweroff - 180000));   //ustawienie by pompa włączyła się za 3 minuty
+      compressor_runtime = (unsigned long)(millis_now + 180000UL);   //ustawienie by sprężarka włączyła się za 3 minuty
     } else if ( work_mode_state == 1 && valve4w_state == 0 && cwu_heating_state == false ) {
       valve4w_state = 1;    // Przełączenie zaworu 4way na chlodzenie
       heatpump_state = 0;
-      millis_last_heatpump_on = (unsigned long)(millis_now - (mincycle_poweroff - 180000));   //ustawienie by pompa włączyła się za 3 minuty
+      // millis_last_heatpump_on = (unsigned long)(millis_now - (mincycle_poweroff - 180000));   //ustawienie by pompa włączyła się za 3 minuty
+      compressor_runtime = (unsigned long)(millis_now + 180000UL);   //ustawienie by sprężarka włączyła się za 3 minuty
     }
 
     //
@@ -2565,6 +2589,7 @@ void loop(void) {
     //digitalWrite  (RELAY_HEATPUMP,  heatpump_state);
     //digitalWrite  (RELAY_COLDSIDE_CIRCLE, coldside_circle_state);
     halifise();
+#endif
 #endif
   }
 

@@ -49,6 +49,8 @@ Controlled via both RS-485 and 16x2 display with buttons.
   - [T_TARGET_CWU] was moved to eeprom, [CWU_INTERVAL] - every how many hours in milliseconds to start a water heating cycle, [CWU_MAX_HEATING_TIME] - how many hours in milliseconds to heat water in one cycle
   - added [CWU_HYSTERESIS] and moved to eeprom
   - transferred [T_EEV_setpoint] to eeprom
+  - overload error handling
+  - lack of start handling
 <br><br>
 ## Applications:
 | Usage. |	Brief description. | 	Application examples	| Available protections	|

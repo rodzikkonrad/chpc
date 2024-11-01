@@ -51,6 +51,7 @@ Controlled via both RS-485 and 16x2 display with buttons.
   - transferred [T_EEV_setpoint] to eeprom
   - overload error handling
   - lack of start handling
+  - added buffer charging proceure
 <br><br>
 ## Applications:
 | Usage. |	Brief description. | 	Application examples	| Available protections	|

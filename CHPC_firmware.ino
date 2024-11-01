@@ -38,6 +38,10 @@
 
 #define CWU_SUPPORT                         //Domestic hot water tank
 
+#define BUFFER_SUPPORT                      //Heat buffer tank for central heating. Charged based on two temperature sensors Ttarget (top of buffer) and Ts1 (bottom of buffer).
+                                            //Charging is done in a cyclic manner, i.e. the heat pump will be turned on when Ttarget<T_setpoint,
+                                            //and the heat pump will be turned off if Ts1>T_setpoint
+
 #define EEV_SUPPORT
 //#define EEV_ONLY                          //NO target, no relays. Oly EEV, Tae, Tbe, current sensor and may be additional T sensors
 
@@ -162,9 +166,11 @@
   - transferred [T_EEV_setpoint] to eeprom
   - overload error handling
   - lack of start handling
+  - added buffer charging proceure
 
   //TODO:
-  - establish the procedure for going from cooling to DHW heating (compressor stop, pause 60 seconds, switch the four-way valve and DHW, pause 60 seconds, start the compressor). The same in the other direction.
+  * In the cooling mode “Hot WP” must be turned on non-stop. 
+  * establish the procedure for going from cooling to DHW heating (compressor stop, pause 60 seconds, switch the four-way valve and DHW, pause 60 seconds, start the compressor). The same in the other direction.
   - 1604 display support
   - 0.0 to -127 fix: only 2 attempts than pass 0.0
   - poss. DoS: infinite read to nowhere, fix it, set finite counter (ex: 200)
@@ -2314,8 +2320,12 @@ void loop(void) {
       }
     }
 
+    // zmienne:
+    // cold_wp_runtime      - przechowuje czas po którym ma nastąpić wyłączenia pompy dolnego źródła
+    // compressor_runtime   - przechowuje czas po którym ma nastąpić włączenie sprężarki
+
     // Uwaga!
-    // W trybie chłodzenie pompa obiegowa górnego źródla chodzi non stop! <- Temat do zrobienia!
+    // W trybie chłodzenie pompa obiegowa górnego źródla chodzi non stop! <- Temat do zrobienia!!!
     //
 
     // Zachować kolejność procedur!
@@ -2340,7 +2350,7 @@ void loop(void) {
           ( (Tsump.e == 1   && Tsump.T > cT_sump_min)   || (Tsump.e ^ 1)) &&
           ( (Tsump.e == 1   && Tsump.T < cT_sump_max)   || (Tsump.e ^ 1)) &&
           //t1_sump > t2_cold_in   && ???
-          ( ( work_mode_state == 0 ? (Ttarget.T < T_setpoint) : (Ttarget.T > T_setpoint_cooling ) ) || cwu_heating_state ) &&
+          ( ( work_mode_state == 0 ? (Ttarget.T < T_setpoint) : (Ttarget.T > T_setpoint_cooling ) ) || cwu_heating_state ) &&   //sprawdzamy warunki dla grzanie/chłodzenie
           ( (Tae.e == 1   && Tae.T > cT_after_evaporator_min) || (Tae.e ^ 1)) &&
           ( (Tbc.e == 1   && Tbc.T < cT_before_condenser_max)   || (Tbc.e ^ 1)) &&
           ( (Tci.e == 1   && Tci.T > cT_cold_min)     || (Tci.e ^ 1)) &&
@@ -2354,13 +2364,17 @@ void loop(void) {
     }
 
     //
-    // STOP pompy ciepła jeśli Ttarget osiągnęło T_setpoint
+    // STOP pompy ciepła jeśli Ttarget osiągnęło T_setpoint lub, gdy grzejemy bufor, Ts1 osiągnęło T_setpoint
     // oraz jeśli grzanie CWU nie jest aktywne lub jeśli musimy zatrzymać CWU grzanie 
     //
     //stop if
     //    ( (last_off > N) and (t watertank > target) )
     if ( heatpump_state == 1     &&     ((unsigned long)(millis_now - millis_last_heatpump_off) > mincycle_poweron)    &&
-    ( ( work_mode_state == 0 ? (Ttarget.T > T_setpoint) : (Ttarget.T < T_setpoint_cooling ) ) &&  !cwu_heating_state) ) {    //sprawdzamy warunki dla grzanie/chłodzenie
+#ifndef BUFFER_SUPPORT
+    ( ( work_mode_state == 0 ? (Ttarget.T > T_setpoint) : (Ttarget.T < T_setpoint_cooling ) ) &&  !cwu_heating_state) ) {    //sprawdzamy warunki dla grzanie/chłodzenie bez bufora
+#else
+    ( ( work_mode_state == 0 ? (Ts1.T > T_setpoint) : (Ts1.T < T_setpoint_cooling ) ) &&  !cwu_heating_state) ) {    //sprawdzamy warunki dla grzanie/chłodzenie z buforem
+#endif
 #ifdef RS485_HUMAN
       PrintS(F("Normal Compressor stop"));
 #endif
@@ -2505,7 +2519,7 @@ void loop(void) {
     // lub czy temperatura CWU osiągnęła 40°C
     if (cwu_heating_state && ((millis_now - millis_cwu_heating_start > CWU_MAX_HEATING_TIME) || (Tcwu.e == 1   && Tcwu.T >= T_TARGET_CWU + CWU_HYSTERESIS))) {
       // Zakończ grzanie CWU po godzinie lub jeśli Tcwu >= T_TARGET_CWU + CWU_HYSTERESIS
-      cwu_heating_state = false;    // Status granie CWU wyłączone
+      cwu_heating_state = false;    // Status grzanie CWU wyłączone
       millis_last_cwu_heating = millis_now;  // Zapisujemy czas zakończenia grzania
       valve_cwu_position = false;  // Przełączamy zawór trójdrogowy z powrotem na ogrzewanie domu
 
@@ -2541,6 +2555,12 @@ void loop(void) {
     //          and COLD WP has been working for COMPRESSOR_DELAY miliseconds
     //          and (millis_last_heatpump_on != millis_now) // <- zwraca TRUE jeśli kompresor jest wyłączony (zabezpieczenie przed ponownym uruchomieniem (heatpump_state = 1) gdy zatrzymanie wynikło z: [ STOP pompy ciepła jesli Ttarget osiągnęło T_setpoint ] -> tam jest ustawiane: millis_last_heatpump_on = millis_now)
     //if (  (heatpump_state == 0)   &&  (coldside_circle_state  == 1)  &&  ((unsigned long)(millis_now - millis_last_coldside_off) > COMPRESSOR_DELAY)   &&   ((unsigned long)millis_last_heatpump_on != millis_now) ) {
+    // uruchomienie jeśli
+    // nie ma błędów i
+    // i sprężarka wyłączona
+    // i pompa dolnego źródła włączona
+    // i czas_włączenia_sprężarki > czas wyłączenia pompy dolnego źródła
+    // i czas włączenia sprężarki nastał
     if ( ( errorcode == ERR_OK )  &&   (heatpump_state == 0)   &&  (coldside_circle_state  == 1)  &&  (compressor_runtime > cold_wp_runtime)  &&  (millis_now > compressor_runtime) )  {
 #ifdef RS485_HUMAN
       PrintS(F("Compressor Start"));

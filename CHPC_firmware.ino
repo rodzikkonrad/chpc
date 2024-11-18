@@ -166,7 +166,7 @@
   - transferred [T_EEV_setpoint] to eeprom
   - overload error handling
   - lack of start handling
-  - added buffer charging proceure
+  - added buffer charging procedure
 
   //TODO:
   * In the cooling mode “Hot WP” must be turned on non-stop. 
@@ -2421,8 +2421,7 @@ void loop(void) {
     //
     //heat if we can, just in case, ex. if lost power
     if ( (hotside_circle_state  == 0) &&
-         ( Tho.e == 1 && Tho.T > (Ttarget.T + cT_hotcircle_delta_min)  )   ||
-         ( Thi.e == 1 && Thi.T > (Ttarget.T + cT_hotcircle_delta_min)  )  ) {
+         ( ( Tho.e == 1 && Tho.T > (Ttarget.T + cT_hotcircle_delta_min)  )   ||   ( Thi.e == 1 && Thi.T > (Ttarget.T + cT_hotcircle_delta_min)  )  )  ) {
 #ifdef RS485_HUMAN
       PrintS(F("Hot WP ON"));
 #endif

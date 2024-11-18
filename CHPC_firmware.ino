@@ -2502,7 +2502,7 @@ void loop(void) {
         PrintS(F("Emergency CWU heating started"));
 #endif
 
-      } else if ((millis_now - millis_last_cwu_heating > CWU_INTERVAL) && (Tcwu.e == 1   && Tcwu.T < T_TARGET_CWU - CWU_HYSTERESIS)) {
+      } else if (  ( (millis_now - millis_last_cwu_heating > CWU_INTERVAL) || millis_last_cwu_heating == 0 ) && (Tcwu.e == 1   && Tcwu.T < T_TARGET_CWU - CWU_HYSTERESIS)) {
         // Normalne grzanie: jeśli minęły co najmniej 2 godziny od ostatniego grzania i Tcwu < T_TARGET_CWU - CWU_HYSTERESIS
         cwu_heating_state = true;   // Status granie CWU włączone
         millis_cwu_heating_start = millis_now;

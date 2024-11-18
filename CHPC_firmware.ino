@@ -38,9 +38,9 @@
 
 #define CWU_SUPPORT                         //Domestic hot water tank
 
-#define BUFFER_SUPPORT                      //Heat buffer tank for central heating. Charged based on two temperature sensors Ttarget (top of buffer) and Ts1 (bottom of buffer).
+#define BUFFER_SUPPORT                      //Heat buffer tank for central heating. Charged based on two temperature sensors Ttarget (top of buffer) and Ts2 (bottom of buffer).
                                             //Charging is done in a cyclic manner, i.e. the heat pump will be turned on when Ttarget<T_setpoint,
-                                            //and the heat pump will be turned off if Ts1>T_setpoint
+                                            //and the heat pump will be turned off if Ts2>T_setpoint
 
 #define EEV_SUPPORT
 //#define EEV_ONLY                          //NO target, no relays. Oly EEV, Tae, Tbe, current sensor and may be additional T sensors
@@ -2364,7 +2364,7 @@ void loop(void) {
     }
 
     //
-    // STOP pompy ciepła jeśli Ttarget osiągnęło T_setpoint lub, gdy grzejemy bufor, Ts1 osiągnęło T_setpoint
+    // STOP pompy ciepła jeśli Ttarget osiągnęło T_setpoint lub, gdy grzejemy bufor, Ts2 osiągnęło T_setpoint
     // oraz jeśli grzanie CWU nie jest aktywne lub jeśli musimy zatrzymać CWU grzanie 
     //
     //stop if
@@ -2373,7 +2373,7 @@ void loop(void) {
 #ifndef BUFFER_SUPPORT
     ( ( work_mode_state == 0 ? (Ttarget.T > T_setpoint) : (Ttarget.T < T_setpoint_cooling ) ) &&  !cwu_heating_state) ) {    //sprawdzamy warunki dla grzanie/chłodzenie bez bufora
 #else
-    ( ( work_mode_state == 0 ? (Ts1.T > T_setpoint) : (Ts1.T < T_setpoint_cooling ) ) &&  !cwu_heating_state) ) {    //sprawdzamy warunki dla grzanie/chłodzenie z buforem
+    ( ( work_mode_state == 0 ? (Ts2.T > T_setpoint) : (Ts2.T < T_setpoint_cooling ) ) &&  !cwu_heating_state) ) {    //sprawdzamy warunki dla grzanie/chłodzenie z buforem
 #endif
 #ifdef RS485_HUMAN
       PrintS(F("Normal Compressor stop"));

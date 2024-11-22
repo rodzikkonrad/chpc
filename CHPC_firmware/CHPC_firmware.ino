@@ -1010,12 +1010,8 @@ void PrintStatsCompressed_Serial (void) {
   digitalWrite(SerialTxControl, RS485Transmit);
   delay(1);
 
-  outString = "{{{";
-
-  // Errors
-  outString += "EER:"+String(errorcode);
-
-  // Temeratures 
+  // Temperatures 
+  outString = "<TEMPS>";
   outString += "TAE:"+String(Tae.T)+";";
   outString += "TBE:"+String(Tbe.T)+";";
   outString += "TBC:"+String(Tbc.T)+";";
@@ -1031,7 +1027,13 @@ void PrintStatsCompressed_Serial (void) {
 #ifdef CWU_SUPPORT
   outString += "TCWU:"+String(Tcwu.T)+";";
 #endif
-// Stats
+  outString += "</TEMPS>";
+  RS485Serial.println(outString);
+  RS485Serial.flush();
+
+  // Stats
+  outString = "<STATS>";
+  outString += "ERR:"+String(errorcode)+";";
 #ifdef EEV_SUPPORT
   outString += "EEV_POS:"+String(EEV_cur_pos);
   percentage_eev = ( EEV_cur_pos * 99.0 ) / 500.0;    // for int 0 - 99%
@@ -1043,18 +1045,21 @@ void PrintStatsCompressed_Serial (void) {
   outString += "HOT_PUMP:" + hotside_circle_state == 0 ? "OFF" : "ON";
   outString += "HEATPUMP_MODE:" + work_mode_state == 0 ? "HEATING" : "COOLING";
   outString += "BUFFER:" + valve_cwu_position == 0 ? "CO" : "CWU";
+  outString += "</STATS>";
+  RS485Serial.println(outString);
+  RS485Serial.flush();
 
   // Settings
+  outString = "<SETTINGS>";
   outString += "CO_HEATING_TARGET:"+String(T_setpoint);
   outString += "CO_COOLING_TARGET"+String(T_setpoint_cooling);
   outString += "CWU_TARGET:"+String(T_TARGET_CWU);
   outString += "CWU_HYSTERESIS:"+String(CWU_HYSTERESIS);
   outString += "EEV_DT"+String(T_EEV_setpoint);
-  
-  outString += "}}}";
-
+  outString += "</SETTINGS>";
   RS485Serial.println(outString);
   RS485Serial.flush();
+  
   digitalWrite(SerialTxControl, RS485Receive);
 #endif
 }

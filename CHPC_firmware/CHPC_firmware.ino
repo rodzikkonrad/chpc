@@ -1,3 +1,5 @@
+#include <LiquidCrystal.h>
+
 /*
   Cheap Heat Pump Controller (CHPC) firmware.
   Copyright (C) 2018-2019 Gonzho (gonzho@web.de)
@@ -33,8 +35,9 @@
 #define INPUTS_AS_BUTTONS       1           //pulldown resistors required
 
 //#define RS485_PYTHON          1
-#define RS485_HUMAN             2
+#define RS485_HUMAN           2
 //#define RS485_NONE            3
+#define RS485_COMPRESSED        4
 
 #define CWU_SUPPORT                         //Domestic hot water tank
 
@@ -46,6 +49,7 @@
 //#define EEV_ONLY                          //NO target, no relays. Oly EEV, Tae, Tbe, current sensor and may be additional T sensors
 
 #define HUMAN_AUTOINFO          10000       //10 sec, print stats to console
+#define COMPRESSED_AUTOINFO     5000        //5 seconds.
 
 #define WATCHDOG                            //only if u know what to do
 
@@ -601,6 +605,7 @@ unsigned long millis_charinput  =  0;
 unsigned long millis_lasteesave =  0;
 
 unsigned long millis_last_printstats = 0;
+unsigned long millis_last_printstats_compressed = 0;
 
 unsigned long millis_eev_last_close   =  0;
 unsigned long millis_eev_last_on    =  0;
@@ -995,6 +1000,60 @@ void PrintStats_Serial (void) {
   RS485Serial.print(outString);
 #endif
   RS485Serial.println();
+  RS485Serial.flush();
+  digitalWrite(SerialTxControl, RS485Receive);
+#endif
+}
+
+void PrintStatsCompressed_Serial (void) {
+#ifdef RS485_COMPRESSED
+  digitalWrite(SerialTxControl, RS485Transmit);
+  delay(1);
+
+  outString = "{{{";
+
+  // Errors
+  outString += "EER:"+String(errorcode);
+
+  // Temeratures 
+  outString += "TAE:"+String(Tae.T)+";";
+  outString += "TBE:"+String(Tbe.T)+";";
+  outString += "TBC:"+String(Tbc.T)+";";
+  outString += "TAC:"+String(Tac.T)+";";
+  outString += "TCI:"+String(Tci.T)+";";
+  outString += "TCO:"+String(Tco.T)+";";
+  outString += "THI:"+String(Thi.T)+";";
+  outString += "THO:"+String(Tho.T)+";";
+  outString += "TSUMP:"+String(Tsump.T)+";";
+  outString += "TOUTSIDE:"+String(Touter.T)+";";    
+  outString += "TCO_UP:"+String(Ttarget.T)+";"; // C.O. - upper termometer
+  outString += "TCO_DOWN:"+String(Ts2.T)+";";   // C.O. - bottom termometer
+#ifdef CWU_SUPPORT
+  outString += "TCWU:"+String(Tcwu.T)+";";
+#endif
+// Stats
+#ifdef EEV_SUPPORT
+  outString += "EEV_POS:"+String(EEV_cur_pos);
+  percentage_eev = ( EEV_cur_pos * 99.0 ) / 500.0;    // for int 0 - 99%
+  outString += "EEV_%:"+String(percentage_eev);
+#endif
+  outString += "POWER:"+String(async_wattage);
+  outString += "COMPRESSOR:" + heatpump_state == 0 ? "OFF" : "ON";
+  outString += "COLD_PUMP:" + coldside_circle_state == 0 ? "OFF" : "ON";
+  outString += "HOT_PUMP:" + hotside_circle_state == 0 ? "OFF" : "ON";
+  outString += "HEATPUMP_MODE:" + work_mode_state == 0 ? "HEATING" : "COOLING";
+  outString += "BUFFER:" + valve_cwu_position == 0 ? "CO" : "CWU";
+
+  // Settings
+  outString += "CO_HEATING_TARGET:"+String(T_setpoint);
+  outString += "CO_COOLING_TARGET"+String(T_setpoint_cooling);
+  outString += "CWU_TARGET:"+String(T_TARGET_CWU);
+  outString += "CWU_HYSTERESIS:"+String(CWU_HYSTERESIS);
+  outString += "EEV_DT"+String(T_EEV_setpoint);
+  
+  outString += "}}}";
+
+  RS485Serial.println(outString);
   RS485Serial.flush();
   digitalWrite(SerialTxControl, RS485Receive);
 #endif
@@ -1868,6 +1927,13 @@ void loop(void) {
     millis_last_printstats = millis_now;
   }
 #endif
+#ifdef RS485_COMPRESSED
+  if (((unsigned long)(millis_now - millis_last_printstats_compressed) > COMPRESSED_AUTOINFO)   ||   (millis_last_printstats_compressed == 0)  ) {
+    PrintStatsCompressed_Serial();
+    millis_last_printstats_compressed = millis_now;
+  }
+#endif
+
   //----------------------------- async fuctions start
   if (em_i == 0) {
     supply_voltage = ReadVcc();

@@ -37,7 +37,7 @@
 //#define RS485_PYTHON          1
 #define RS485_HUMAN           2
 //#define RS485_NONE            3
-#define RS485_COMPRESSED        4
+// #define RS485_COMPRESSED        4
 
 #define CWU_SUPPORT                         //Domestic hot water tank
 
@@ -92,7 +92,7 @@
 
 #define EEV_STOP_HOLD           500       //0.1..1sec for Sanhua
 #define EEV_CLOSE_ADD_PULSES    8         //read below, close algo
-#define EEV_OPEN_AFTER_CLOSE    58        //0 - close to zero position, than close on EEV_CLOSE_ADD_PULSES (close insurance, read EEV manuals for this value)
+#define EEV_OPEN_AFTER_CLOSE    200       //0 - close to zero position, than close on EEV_CLOSE_ADD_PULSES (close insurance, read EEV manuals for this value)
 //N - close to zero position, than close on EEV_CLOSE_ADD_PULSES, than open on EEV_OPEN_AFTER_CLOSE pulses
 //i.e. it is "waiting position" while HP not working
 #define EEV_MINWORKPOS          120        //position will be not less during normal work, set after compressor start
@@ -1010,54 +1010,52 @@ void PrintStatsCompressed_Serial (void) {
   digitalWrite(SerialTxControl, RS485Transmit);
   delay(1);
 
+  String compressed = "";
+
   // Temperatures 
-  outString = "<TEMPS>";
-  outString += "TAE:"+String(Tae.T)+";";
-  outString += "TBE:"+String(Tbe.T)+";";
-  outString += "TBC:"+String(Tbc.T)+";";
-  outString += "TAC:"+String(Tac.T)+";";
-  outString += "TCI:"+String(Tci.T)+";";
-  outString += "TCO:"+String(Tco.T)+";";
-  outString += "THI:"+String(Thi.T)+";";
-  outString += "THO:"+String(Tho.T)+";";
-  outString += "TSUMP:"+String(Tsump.T)+";";
-  outString += "TOUTSIDE:"+String(Touter.T)+";";    
-  outString += "TCO_UP:"+String(Ttarget.T)+";"; // C.O. - upper termometer
-  outString += "TCO_DOWN:"+String(Ts2.T)+";";   // C.O. - bottom termometer
-#ifdef CWU_SUPPORT
-  outString += "TCWU:"+String(Tcwu.T)+";";
-#endif
-  outString += "</TEMPS>";
-  RS485Serial.println(outString);
-  RS485Serial.flush();
+  compressed = "<TEMPS>";
+  compressed += "TAE:"+String(Tae.T)+";";
+  compressed += "TBE:"+String(Tbe.T)+";";
+  compressed += "TBC:"+String(Tbc.T)+";";
+  compressed += "TAC:"+String(Tac.T)+";";
+  compressed += "TCI:"+String(Tci.T)+";";
+  compressed += "TCO:"+String(Tco.T)+";";
+  compressed += "THI:"+String(Thi.T)+";";
+  compressed += "THO:"+String(Tho.T)+";";
+  compressed += "TSUMP:"+String(Tsump.T)+";";
+  compressed += "TOUTSIDE:"+String(Touter.T)+";";    
+  compressed += "TCO_UP:"+String(Ttarget.T)+";"; // C.O. - upper termometer
+  compressed += "TCO_DOWN:"+String(Ts2.T)+";";   // C.O. - bottom termometer
+  compressed += "TCWU:"+String(Tcwu.T);
+  compressed += "</TEMPS>";
+  // RS485Serial.println(compressed);
+  // RS485Serial.flush();
 
   // Stats
-  outString = "<STATS>";
-  outString += "ERR:"+String(errorcode)+";";
-#ifdef EEV_SUPPORT
-  outString += "EEV_POS:"+String(EEV_cur_pos);
+  compressed += "<STATS>";
+  compressed += "ERR:"+String(errorcode)+";";
+  compressed += "EEV_POS:"+String(EEV_cur_pos)+";";
   percentage_eev = ( EEV_cur_pos * 99.0 ) / 500.0;    // for int 0 - 99%
-  outString += "EEV_%:"+String(percentage_eev);
-#endif
-  outString += "POWER:"+String(async_wattage);
-  outString += "COMPRESSOR:" + heatpump_state == 0 ? "OFF" : "ON";
-  outString += "COLD_PUMP:" + coldside_circle_state == 0 ? "OFF" : "ON";
-  outString += "HOT_PUMP:" + hotside_circle_state == 0 ? "OFF" : "ON";
-  outString += "HEATPUMP_MODE:" + work_mode_state == 0 ? "HEATING" : "COOLING";
-  outString += "BUFFER:" + valve_cwu_position == 0 ? "CO" : "CWU";
-  outString += "</STATS>";
-  RS485Serial.println(outString);
-  RS485Serial.flush();
+  compressed += "EEV_%:"+String(percentage_eev)+";";
+  compressed += "POWER:"+String(async_wattage)+";";
+  compressed += "COMPRESSOR:" + String(heatpump_state == 0 ? "OFF" : "ON")+";";
+  compressed += "COLD_PUMP:" + String(coldside_circle_state == 0 ? "OFF" : "ON")+";";
+  compressed += "HOT_PUMP:" + String(hotside_circle_state == 0 ? "OFF" : "ON")+";";
+  compressed += "HEATPUMP_MODE:" + String(work_mode_state == 0 ? "HEATING" : "COOLING")+";";
+  compressed += "BUFFER:" + valve_cwu_position == 0 ? "CO" : "CWU";
+  compressed += "</STATS>";
+  // RS485Serial.println(compressed);
+  // RS485Serial.flush();
 
   // Settings
-  outString = "<SETTINGS>";
-  outString += "CO_HEATING_TARGET:"+String(T_setpoint);
-  outString += "CO_COOLING_TARGET"+String(T_setpoint_cooling);
-  outString += "CWU_TARGET:"+String(T_TARGET_CWU);
-  outString += "CWU_HYSTERESIS:"+String(CWU_HYSTERESIS);
-  outString += "EEV_DT"+String(T_EEV_setpoint);
-  outString += "</SETTINGS>";
-  RS485Serial.println(outString);
+  compressed += "<SETTINGS>";
+  compressed += "CO_HEATING_TARGET:"+String(T_setpoint)+";";
+  compressed += "CO_COOLING_TARGET"+String(T_setpoint_cooling)+";";
+  compressed += "CWU_TARGET:"+String(T_TARGET_CWU)+";";
+  compressed += "CWU_HYSTERESIS:"+String(CWU_HYSTERESIS)+";";
+  compressed += "EEV_DT"+String(T_EEV_setpoint);
+  compressed += "</SETTINGS>";
+  RS485Serial.println(compressed);
   RS485Serial.flush();
   
   digitalWrite(SerialTxControl, RS485Receive);
@@ -1553,6 +1551,7 @@ void setup(void) {
   //RS485Serial.println("starting..."); //!!!debug
   delay(100);
   PrintS_and_D("ID: 0x" + String(devID, HEX));
+  PrintS_and_D("MAGIC: " + String(123));
   //Print_Lomem(C_ID);
   outString = "Please wait...";
   Print_D2();

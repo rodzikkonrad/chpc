@@ -68,7 +68,7 @@
 //-----------------------TUNING OPTIONS -----------------------
 #define MAX_WATTS               3000.0      //user for power protection
 
-#define DEFFERED_STOP_HOTCIRCLE 3000000     //50 mins
+#define DEFFERED_STOP_HOTCIRCLE 60000       //1 mins
 
 #define POWERON_PAUSE           90000       //5 mins //300000
 #define COMPRESSOR_DELAY        45000       //45 seconds, Cold WP starts first and the compressor after that
@@ -1551,7 +1551,7 @@ void setup(void) {
   //RS485Serial.println("starting..."); //!!!debug
   delay(100);
   PrintS_and_D("ID: 0x" + String(devID, HEX));
-  PrintS_and_D("MAGIC: " + String(123));
+  PrintS_and_D("MAGIC: " + String(256));
   //Print_Lomem(C_ID);
   outString = "Please wait...";
   Print_D2();

@@ -374,8 +374,9 @@ String hw_version = "Type G v1.x";
 #define RELAY_SUMP_HEATER       10
 #define RELAY_4WAY_VALVE        11
 #ifdef INPUTS_AS_BUTTONS
-#define BUT_RIGHT   A3
-#define BUT_LEFT    A2
+#define BUT_RIGHT       A3
+#define BUT_LEFT        A2
+#define BUT_HEAT_COLD   A1
 #endif
 #ifdef EEV_SUPPORT
 #define EEV_1   2
@@ -555,6 +556,7 @@ bool valve4w_state          = 0;
 bool cwu_heating_state      = 0;  // Flaga aktywnego grzania CWU
 bool valve_cwu_position     = 0;  // Flaga pozycji zaworu (false = ogrzewanie domu, true = ogrzewanie CWU)
 bool work_mode_state        = 0;  // Flaga 0 - grzanie, 1 - chłodzenie
+bool work_mode_state_last_saved = work_mode_state;
 
 bool relay6_state   = 0;
 bool relay7_state   = 0;
@@ -621,6 +623,7 @@ byte index = 0;       // Index into array; where to store the character
 
 //-------------temporary variables
 char temp[10];
+int hot_cold_button = 0;
 int i = 0;
 int z = 0;
 int x = 0;
@@ -994,11 +997,18 @@ void PrintStats_Serial (void) {
     outString = "Ts2: "  ;
     print_Serial_SaD(Ts2.T);
   }
+  outString = "WORK MODE:" + work_mode_state ? "COOLING" : "HEATING");
+  RS485Serial.print(outString);
+  if(work_mode_state == 1) { // Cooling
+    outString = "COOLING SET POINT: ";
+    print_Serial_SaD(T_setpoint_cooling_lastsaved);
+  }
   outString = "Err: " + String(errorcode) + "\n\rWatts:" + String(async_wattage) + "\n\rAim: "; print_Serial_SaD(T_setpoint);
 #ifdef EEV_SUPPORT
   outString = "EEV_pos:" + String (EEV_cur_pos);
   RS485Serial.print(outString);
 #endif
+  
   RS485Serial.println();
   RS485Serial.flush();
   digitalWrite(SerialTxControl, RS485Receive);
@@ -1140,6 +1150,11 @@ void SaveDataEE(void) {
       eeprom_addr = 0x15;
       WriteFloatEEPROM(eeprom_addr, T_EEV_setpoint);
       T_EEV_setpoint_lastsaved = T_EEV_setpoint;
+    }
+    if (work_mode_state_last_saved != work_mode_state) {
+      eeprom_addr = 0x12;
+      EEPROM.write(eeprom_addr, work_mode_state);
+      work_mode_state_last_saved = work_mode_state;
     }
     millis_lasteesave = millis_now;
 #ifdef RS485_HUMAN
@@ -1658,6 +1673,8 @@ void setup(void) {
   //digitalWrite  (BUT_RIGHT, LOW);
   pinMode   (BUT_LEFT, INPUT);
   //digitalWrite  (BUT_LEFT, LOW);
+  pinMode   (BUT_HEAT_COLD, INPUT);
+  //digitalWrite  (BUT_HEAT_COLD, LOW);
 #endif
 
   //EEPROM content:
@@ -2010,9 +2027,10 @@ void loop(void) {
 
   z = digitalRead(BUT_LEFT);
   i = digitalRead(BUT_RIGHT);
+  hot_cold_button = digitalRead(BUT_HEAT_COLD);
   if ( (z == 1) && ( i == 1) ) {
     //
-  } else if ( (z == 1) || ( i == 1) ) {
+  } else if ( (z == 1) || ( i == 1) || (hot_cold_button == 1)) {
 #ifndef EEV_ONLY
     if ( z == 1 ) {
       x = Dec_T();
@@ -2022,6 +2040,12 @@ void loop(void) {
     }
     if (x == 1) {
       PrintS_and_D("New aim: " + String(T_setpoint));
+      delay(300);
+    }
+    // handle switching from heating to colling...
+    if ( hot_cold_button == 1 ) {
+      work_mode_state = !work_mode_state;
+      PrintS_and_D("New work mode: " + work_mode_state ? "COOLING" : "HEATING");
       delay(300);
     }
 #else

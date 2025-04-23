@@ -1566,7 +1566,7 @@ void setup(void) {
   //RS485Serial.println("starting..."); //!!!debug
   delay(100);
   PrintS_and_D("ID: 0x" + String(devID, HEX));
-  PrintS_and_D("MAGIC: " + String(256));
+  PrintS_and_D("MAGIC: " + String(512));
   //Print_Lomem(C_ID);
   outString = "Please wait...";
   Print_D2();

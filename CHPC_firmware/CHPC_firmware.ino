@@ -66,9 +66,9 @@
 #define T_WORKINGOK_SUMP_MIN    24.0;       //compressor MIN temperature, HP stops if it lower after 5 minutes of pumping, need to be not very high to normal start after deep freeze
 
 //-----------------------TUNING OPTIONS -----------------------
-#define MAX_WATTS               3000.0      //user for power protection
+#define MAX_WATTS               3500.0      //user for power protection
 
-#define DEFFERED_STOP_HOTCIRCLE 60000       //1 mins
+#define DEFFERED_STOP_HOTCIRCLE 600000       //10 mins
 
 #define POWERON_PAUSE           90000       //5 mins //300000
 #define COMPRESSOR_DELAY        45000       //45 seconds, Cold WP starts first and the compressor after that
@@ -79,7 +79,7 @@
 
 //CWU DHW 
 #define CWU_INTERVAL            7200000     //2 godziny w milisekundach
-#define CWU_MAX_HEATING_TIME    3600000     //1 godzina w milisekundach
+#define CWU_MAX_HEATING_TIME    7200000     //2 godziny w milisekundach
 
 //EEV
 #define EEV_MAXPULSES           500

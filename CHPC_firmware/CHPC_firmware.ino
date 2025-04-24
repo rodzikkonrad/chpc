@@ -546,7 +546,7 @@ const double cT_hotout_max      = T_HOTOUT_MAX;
 const double cT_workingOK_sump_min  = T_WORKINGOK_SUMP_MIN;         //need to be not very high to normal start after deep freeze
 const double c_wattage_max    = MAX_WATTS;    //FUNAI: 1000W seems to be normal working wattage INCLUDING 1(one) CR25/4 at 3rd speed
 //PH165X1CY : 920 Watts, 4.2 A
-const double c_workingOK_wattage_min  = c_wattage_max / 2.5;   // zmiana z 2.5
+const double c_workingOK_wattage_min  = c_wattage_max * 0.3;   // zmiana z 2.5
 
 bool heatpump_state         = 0;
 bool hotside_circle_state   = 0;
@@ -997,11 +997,10 @@ void PrintStats_Serial (void) {
     outString = "Ts2: "  ;
     print_Serial_SaD(Ts2.T);
   }
-  outString = "WORK MODE:" + work_mode_state ? "COOLING" : "HEATING");
-  RS485Serial.print(outString);
+  PrintS((work_mode_state == 0 ? "HEATING" : "COOLING"));
   if(work_mode_state == 1) { // Cooling
-    outString = "COOLING SET POINT: ";
-    print_Serial_SaD(T_setpoint_cooling_lastsaved);
+    outString = "Cooling setpoint: ";
+    print_Serial_SaD(T_setpoint_cooling);
   }
   outString = "Err: " + String(errorcode) + "\n\rWatts:" + String(async_wattage) + "\n\rAim: "; print_Serial_SaD(T_setpoint);
 #ifdef EEV_SUPPORT
@@ -1721,6 +1720,9 @@ void setup(void) {
     eeprom_addr = 0x15;
     T_EEV_setpoint = ReadFloatEEPROM(eeprom_addr);
 
+    eeprom_addr = 0x12;
+    work_mode_state = EEPROM.read(eeprom_addr);
+
     //PrintS_and_D("EEPROM->T " + String(T_setpoint));
 
     eeprom_addr = 0x31;
@@ -2044,8 +2046,8 @@ void loop(void) {
     }
     // handle switching from heating to colling...
     if ( hot_cold_button == 1 ) {
-      work_mode_state = !work_mode_state;
-      PrintS_and_D("New work mode: " + work_mode_state ? "COOLING" : "HEATING");
+      work_mode_state = (work_mode_state == 0 ? 1 : 0);
+      PrintS((work_mode_state ? "COOLING" : "HEATING"));
       delay(300);
     }
 #else
@@ -2128,12 +2130,12 @@ void loop(void) {
     SaveDataEE();
 
     //----------------------------- read important data from eeprom
-    eeprom_addr = 0x12;
-    work_mode_state = EEPROM.read(eeprom_addr);   //  Work mode: Tryb pracy: Grzanie = 0, Chłodzenie = 1 (tylko jeśli 0x11 == 1)
-    if ( work_mode_state == 1 ) {
-      eeprom_addr = 0x05;
-      T_setpoint_cooling = ReadFloatEEPROM(eeprom_addr);
-    }
+    // eeprom_addr = 0x12;
+    // work_mode_state = EEPROM.read(eeprom_addr);   //  Work mode: Tryb pracy: Grzanie = 0, Chłodzenie = 1 (tylko jeśli 0x11 == 1)
+    // if ( work_mode_state == 1 ) {
+    //   eeprom_addr = 0x05;
+    //   T_setpoint_cooling = ReadFloatEEPROM(eeprom_addr);
+    // }
 
     //----------------------------- important logic
     //check T sensors

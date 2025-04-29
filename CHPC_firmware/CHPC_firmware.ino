@@ -521,7 +521,7 @@ unsigned int used_sensors = 0 ;         //bit array
 
 double T_setpoint                       = 21.5;
 double T_setpoint_lastsaved             = T_setpoint;
-double T_setpoint_cooling               = 7.0;
+double T_setpoint_cooling               = 10.0;
 double T_setpoint_cooling_lastsaved    = T_setpoint_cooling;
 double T_TARGET_CWU                     = 40.0;
 double T_TARGET_CWU_lastsaved           = T_TARGET_CWU;
@@ -997,16 +997,16 @@ void PrintStats_Serial (void) {
     outString = "Ts2: "  ;
     print_Serial_SaD(Ts2.T);
   }
-  PrintS((work_mode_state == 0 ? "HEATING" : "COOLING"));
-  if(work_mode_state == 1) { // Cooling
-    outString = "Cooling setpoint: ";
-    print_Serial_SaD(T_setpoint_cooling);
-  }
   outString = "Err: " + String(errorcode) + "\n\rWatts:" + String(async_wattage) + "\n\rAim: "; print_Serial_SaD(T_setpoint);
 #ifdef EEV_SUPPORT
   outString = "EEV_pos:" + String (EEV_cur_pos);
   RS485Serial.print(outString);
 #endif
+
+  if(work_mode_state == 1) { // Cooling
+    outString = "Cooling:" + String (T_setpoint_cooling);
+    print_Serial_SaD(T_setpoint_cooling);
+  }
   
   RS485Serial.println();
   RS485Serial.flush();
@@ -1565,7 +1565,7 @@ void setup(void) {
   //RS485Serial.println("starting..."); //!!!debug
   delay(100);
   PrintS_and_D("ID: 0x" + String(devID, HEX));
-  PrintS_and_D("MAGIC: " + String(512));
+  PrintS_and_D("MAGIC: " + String(1024));
   //Print_Lomem(C_ID);
   outString = "Please wait...";
   Print_D2();
@@ -2047,7 +2047,7 @@ void loop(void) {
     // handle switching from heating to colling...
     if ( hot_cold_button == 1 ) {
       work_mode_state = (work_mode_state == 0 ? 1 : 0);
-      PrintS((work_mode_state ? "COOLING" : "HEATING"));
+      PrintS(work_mode_state == 1 ? "COOLING" : "HEATING");
       delay(300);
     }
 #else

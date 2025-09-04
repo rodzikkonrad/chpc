@@ -66,7 +66,7 @@
 #define T_WORKINGOK_SUMP_MIN    24.0;       //compressor MIN temperature, HP stops if it lower after 5 minutes of pumping, need to be not very high to normal start after deep freeze
 
 //-----------------------TUNING OPTIONS -----------------------
-#define MAX_WATTS               3500.0      //user for power protection
+#define MAX_WATTS               1500.0      //user for power protection
 
 #define DEFFERED_STOP_HOTCIRCLE 600000       //10 mins
 
@@ -92,10 +92,10 @@
 
 #define EEV_STOP_HOLD           500       //0.1..1sec for Sanhua
 #define EEV_CLOSE_ADD_PULSES    8         //read below, close algo
-#define EEV_OPEN_AFTER_CLOSE    150       //0 - close to zero position, than close on EEV_CLOSE_ADD_PULSES (close insurance, read EEV manuals for this value)
+#define EEV_OPEN_AFTER_CLOSE    100       //0 - close to zero position, than close on EEV_CLOSE_ADD_PULSES (close insurance, read EEV manuals for this value)
 //N - close to zero position, than close on EEV_CLOSE_ADD_PULSES, than open on EEV_OPEN_AFTER_CLOSE pulses
 //i.e. it is "waiting position" while HP not working
-#define EEV_MINWORKPOS          120        //position will be not less during normal work, set after compressor start
+#define EEV_MINWORKPOS          80        //position will be not less during normal work, set after compressor start
 #define EEV_PRECISE_START       8.6       //T difference, threshold: make slower pulses if (real_diff-target_diff) less than this value. Used for fine auto-tuning.     //zmiana z 8.6
 #define EEV_EMERG_DIFF          3.5       //zmiana z 2.5     //if dangerous condition:  real_diff =< (target_diff - EEV_EMERG_DIFF) occured then EEV will be closed to min. work position //Ex: EEV_EMERG_DIFF = 2.0, target diff 5.0, if real_diff =< (5.0 - 2.0) than EEV will be closed
 #define EEV_HYSTERESIS          0.6       //must be less than EEV_PRECISE_START, ex: target difference = 4.0, hysteresis = 0.1, when difference in range 4.0..4.1 no EEV pulses will be done; 
@@ -1382,7 +1382,10 @@ void halifise(void) {
   digitalWrite  (RELAY_COLDSIDE_CIRCLE, coldside_circle_state);
 #endif
 #ifdef BOARD_TYPE_G
-  digitalWrite  (RELAY_4WAY_VALVE, valve4w_state);
+  // HACK: wlaczaj przekaznic zaworu 4 way tylko wtedy kiedy dziala pompa glebinowa...
+  if(coldside_circle_state == 1) {
+    digitalWrite  (RELAY_4WAY_VALVE, !valve4w_state);
+  }
   digitalWrite  (RELAY_SUMP_HEATER,   valve_cwu_position); // było: sump_heater_state); Waldek // zamiast ogrzewania sprężarki sterowanie zaworem trójdrogowym
   digitalWrite  (RELAY_HOTSIDE_CIRCLE,  hotside_circle_state);
   digitalWrite  (RELAY_HEATPUMP,  heatpump_state);
@@ -1565,7 +1568,7 @@ void setup(void) {
   //RS485Serial.println("starting..."); //!!!debug
   delay(100);
   PrintS_and_D("ID: 0x" + String(devID, HEX));
-  PrintS_and_D("MAGIC: " + String(1024));
+  PrintS_and_D("MAGIC: " + String(1025));
   //Print_Lomem(C_ID);
   outString = "Please wait...";
   Print_D2();
@@ -1721,7 +1724,7 @@ void setup(void) {
     T_EEV_setpoint = ReadFloatEEPROM(eeprom_addr);
 
     eeprom_addr = 0x12;
-    work_mode_state = EEPROM.read(eeprom_addr);
+    work_mode_state = 0;//EEPROM.read(eeprom_addr);
 
     //PrintS_and_D("EEPROM->T " + String(T_setpoint));
 

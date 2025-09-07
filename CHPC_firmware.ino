@@ -66,9 +66,9 @@
 #define T_WORKINGOK_SUMP_MIN    24.0;       //compressor MIN temperature, HP stops if it lower after 5 minutes of pumping, need to be not very high to normal start after deep freeze
 
 //-----------------------TUNING OPTIONS -----------------------
-#define MAX_WATTS               2000.0      //user for power protection
+#define MAX_WATTS               1300.0      //user for power protection
 
-#define DEFFERED_STOP_HOTCIRCLE 3000000     //50 mins
+#define DEFFERED_STOP_HOTCIRCLE 300000      //5 mins
 
 #define POWERON_PAUSE           90000       //5 mins //300000
 #define COMPRESSOR_DELAY        45000       //45 seconds, Cold WP starts first and the compressor after that
@@ -92,7 +92,7 @@
 
 #define EEV_STOP_HOLD           500       //0.1..1sec for Sanhua
 #define EEV_CLOSE_ADD_PULSES    8         //read below, close algo
-#define EEV_OPEN_AFTER_CLOSE    50       //0 - close to zero position, than close on EEV_CLOSE_ADD_PULSES (close insurance, read EEV manuals for this value)
+#define EEV_OPEN_AFTER_CLOSE    90       //0 - close to zero position, than close on EEV_CLOSE_ADD_PULSES (close insurance, read EEV manuals for this value)
 //N - close to zero position, than close on EEV_CLOSE_ADD_PULSES, than open on EEV_OPEN_AFTER_CLOSE pulses
 //i.e. it is "waiting position" while HP not working
 #define EEV_MINWORKPOS          70       //position will be not less during normal work, set after compressor start
@@ -1338,7 +1338,11 @@ void halifise(void) {
   digitalWrite  (RELAY_COLDSIDE_CIRCLE, coldside_circle_state);
 #endif
 #ifdef BOARD_TYPE_G
-  digitalWrite  (RELAY_4WAY_VALVE, valve4w_state);
+  // HACK: przekaźnik zaworu 4 way tylko wtedy kiedy dziala pompa glebinowa...
+  if(coldside_circle_state == 1) {
+    // HACK: reversed logic
+    digitalWrite  (RELAY_4WAY_VALVE, !valve4w_state);
+  }
   digitalWrite  (RELAY_SUMP_HEATER,   valve_cwu_position); // było: sump_heater_state); Waldek // zamiast ogrzewania sprężarki sterowanie zaworem trójdrogowym
   digitalWrite  (RELAY_HOTSIDE_CIRCLE,  hotside_circle_state);
   digitalWrite  (RELAY_HEATPUMP,  heatpump_state);

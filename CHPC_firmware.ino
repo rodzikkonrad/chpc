@@ -66,7 +66,7 @@
 #define T_WORKINGOK_SUMP_MIN    24.0;       //compressor MIN temperature, HP stops if it lower after 5 minutes of pumping, need to be not very high to normal start after deep freeze
 
 //-----------------------TUNING OPTIONS -----------------------
-#define MAX_WATTS               1300.0      //user for power protection
+#define MAX_WATTS               1800.0      //user for power protection
 
 #define DEFFERED_STOP_HOTCIRCLE 300000      //5 mins
 
@@ -179,6 +179,11 @@
   - eevise procedure rewritten
   - DHW and buffer handling added to the menu, as well as a procedure for manual resetting of the heat pump/errors
   - corrections of several minor bugs
+
+  v2.1 07.09.2025 (kondi)
+  - 1600 grams of C407c in 3phase heatpump.
+  - Reversed 4way valve relay because different hardware and connetions.
+  - other small fixes and adjustements.
 
   //TODO:
   * In the cooling mode “Hot WP” must be turned on non-stop. 
@@ -851,8 +856,8 @@ void Print_D2 () {
 }
 
 void _PrintHelp(void) {
-  PrintS( "Oryginal CHPC, https://github.com/gonzho000/chpc/");
-  PrintS( "Forked CHPC, https://github.com/WaldemarPachol/chpc fw: " + fw_version  + " board: " + hw_version);
+  // PrintS( "Oryginal CHPC, https://github.com/gonzho000/chpc/");
+  // PrintS( "Forked CHPC, https://github.com/WaldemarPachol/chpc fw: " + fw_version  + " board: " + hw_version);
   PrintS(F("Commands: \n (?) help\n (+) increase aim T\n (-) decrease aim T\n"));
   PrintS(F(" [(] increase aim T_CWU\n [)] decrease aim T_CWU\n"));
   PrintS(F(" [&] increase hysteresis T_CWU\n [*] decrease hysteresis T_CWU\n"));
@@ -2069,6 +2074,8 @@ void loop(void) {
           break;
         case 10:  //HP_4D_valve:
           {
+          if (z == 1) EEPROM.write(0x11, 0);
+          if (i == 1) EEPROM.write(0x11, 1);
           String valveState = (EEPROM.read(0x11) == 0 ? "NO" : "YES");
           PrintS_and_D("HP_4D_valve:" + valveState);
           }
@@ -2084,10 +2091,12 @@ void loop(void) {
           }
           break;
         case 12:  //MAX_WATTS:
+          {
           if (z == 1) c_wattage_max -= 100;
           if (i == 1) c_wattage_max += 100;
           c_workingOK_wattage_min = c_wattage_max * 0.3;
           PrintS_and_D("Max_Watts:" + String(c_wattage_max));
+          }
           break;
         case 13:  //RESET SYSTEMU
           {

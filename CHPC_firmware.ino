@@ -1343,11 +1343,9 @@ void halifise(void) {
   digitalWrite  (RELAY_COLDSIDE_CIRCLE, coldside_circle_state);
 #endif
 #ifdef BOARD_TYPE_G
-  // HACK: przekaźnik zaworu 4 way tylko wtedy kiedy dziala pompa glebinowa...
-  if(coldside_circle_state == 1) {
-    // HACK: reversed logic
-    digitalWrite  (RELAY_4WAY_VALVE, !valve4w_state);
-  }
+  // INFO: reversed logic because of the different hardware (reversed 4wayvalve during assembly).
+  // INFO: turn it on only when the cold side pump is working.
+  digitalWrite  (RELAY_4WAY_VALVE, coldside_circle_state && !valve4w_state);
   digitalWrite  (RELAY_SUMP_HEATER,   valve_cwu_position); // było: sump_heater_state); Waldek // zamiast ogrzewania sprężarki sterowanie zaworem trójdrogowym
   digitalWrite  (RELAY_HOTSIDE_CIRCLE,  hotside_circle_state);
   digitalWrite  (RELAY_HEATPUMP,  heatpump_state);
@@ -1698,8 +1696,8 @@ void setup(void) {
     eeprom_addr = 0x15;
     T_EEV_setpoint_lastsaved = T_EEV_setpoint = ReadFloatEEPROM(eeprom_addr);
 
-    eeprom_addr = 0x19;
-    c_wattage_max_lastsaved = c_wattage_max = ReadFloatEEPROM(eeprom_addr);
+    // eeprom_addr = 0x19;
+    // c_wattage_max_lastsaved = c_wattage_max = ReadFloatEEPROM(eeprom_addr);
 
     //PrintS_and_D("EEPROM->T " + String(T_setpoint));
 
@@ -2092,9 +2090,9 @@ void loop(void) {
           break;
         case 12:  //MAX_WATTS:
           {
-          if (z == 1) c_wattage_max -= 100;
-          if (i == 1) c_wattage_max += 100;
-          c_workingOK_wattage_min = c_wattage_max * 0.3;
+          // if (z == 1) c_wattage_max -= 100;
+          // if (i == 1) c_wattage_max += 100;
+          // c_workingOK_wattage_min = c_wattage_max * 0.3;
           PrintS_and_D("Max_Watts:" + String(c_wattage_max));
           }
           break;

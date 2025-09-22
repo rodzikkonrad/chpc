@@ -955,6 +955,11 @@ void print_Serial_SaD (double num) {  //global string + double
   RS485Serial.println(num);
 }
 
+void print_Serial_SaI (int num) {  //global string + int
+  RS485Serial.print(outString);
+  RS485Serial.println(num);
+}
+
 void PrintStats_Serial (void) {
 #ifdef RS485_HUMAN
   digitalWrite(SerialTxControl, RS485Transmit);
@@ -1023,6 +1028,16 @@ void PrintStats_Serial (void) {
   print_Serial_SaD(async_wattage);
   outString = "Aim: "; 
   print_Serial_SaD(T_setpoint);
+  outString = "ColdPump:";
+  print_Serial_SaI(coldside_circle_state);
+  outString = "HotPump:";
+  print_Serial_SaI(hotside_circle_state);
+  outString = "3WayValve:";
+  print_Serial_SaI(valve_cwu_position);
+  outString = "4WayValve:";
+  print_Serial_SaI(valve4w_state);
+  outString = "Compressor:";
+  print_Serial_SaI(heatpump_state);
  
 #ifdef EEV_SUPPORT
   outString = "EEV_pos:" + String (EEV_cur_pos);

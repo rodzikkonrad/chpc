@@ -1059,7 +1059,7 @@ void ReadEECheckAddr(unsigned char *to_addr) {
   if (i != 0) {
     while (1) {
       //PrintAddr(to_addr);
-      PrintS_and_D(F("Problem: EEPROM, reinit!"));
+      PrintS_and_D(F("Problem: EEPROM_reinit!"));
       delay(5000);
     }
   }
@@ -1133,7 +1133,7 @@ void SaveDataEE(void) {
     }
     millis_lasteesave = millis_now;
 #ifdef RS485_HUMAN
-    PrintS(F("Info: Data saved to EEPROM"));
+    PrintS(F("Info: DataSavedEEPROM"));
 #endif
   }
 }
@@ -1991,7 +1991,7 @@ void loop(void) {
   if ( heatpump_state == 1   &&  async_wattage > c_wattage_max  ) {
     if (  ((unsigned long)(millis_now - millis_last_heatpump_off) > POWERON_HIGHTIME )  ||  (async_wattage > c_wattage_max * 3)) {
 #ifdef RS485_HUMAN
-      PrintS(("Problem: Overload " + String(async_wattage)));
+      PrintS(("Problem: Overload_" + String(async_wattage)));
 #endif
       compressor_start_after = (unsigned long)(millis_now + 180000UL);   //ustawienie by pompa włączyła się za 3 minuty po wystąpieniu błędu Overload;
       heatpump_state = 0;
@@ -2005,7 +2005,7 @@ void loop(void) {
 #ifndef INVERTER_COMPRESOR
   if ( heatpump_state == 1   &&  async_wattage < c_wattage_max / 3  &&  ((unsigned long)(millis_now) > compressor_start_after + 2000 )  ) {
 #ifdef RS485_HUMAN
-    PrintS("Problem: Lack of start…");
+    PrintS("Problem: LackOfStart!");
 #endif
     compressor_start_after = (unsigned long)(millis_now + 180000UL);   //ustawienie by pompa włączyła się za 3 minuty;
     heatpump_state = 0;
@@ -2367,17 +2367,17 @@ if (errorcode == 0 && async_wattage > c_workingOK_wattage_min && EEV_cur_pos > 0
     if (emergClose) {
       EEV_apulses = -1; EEV_adonotcare = 0; EEV_fast = 1;
 #ifdef EEV_DEBUG
-      PrintS(F("EEV: 1 emergency closing!"));
+      PrintS(F("EEV: 1_emergency_closing!"));
 #endif
     } else if (shouldClose) {
       EEV_apulses = -1; EEV_adonotcare = 0; EEV_fast = 0;
 #ifdef EEV_DEBUG
-      PrintS(F("EEV: 2 closing"));
+      PrintS(F("EEV: 2_closing"));
 #endif
     } else if (fastOpen) {
       EEV_adonotcare = 0; EEV_fast = 1;
 #ifdef EEV_DEBUG
-      PrintS(F("EEV: 3 enforce faster opening"));
+      PrintS(F("EEV: 3_enforce_faster_opening"));
 #endif
     }
   }
@@ -2386,23 +2386,23 @@ if (errorcode == 0 && async_wattage > c_workingOK_wattage_min && EEV_cur_pos > 0
     if (fastOpen) {
       EEV_apulses = 1; EEV_adonotcare = 0; EEV_fast = 1;
 #ifdef EEV_DEBUG
-      PrintS(F("EEV: 4 fast opening"));
+      PrintS(F("EEV: 4_fast_opening"));
 #endif
     } else if (shouldOpen && T_EEV_dt > (T_EEV_setpoint + T_EEV_modificator + EEV_HYSTERESIS)) {
       EEV_apulses = 1; EEV_adonotcare = 0; EEV_fast = 0;
 #ifdef EEV_DEBUG
-      PrintS(F("EEV: 5 opening"));
+      PrintS(F("EEV: 5_opening"));
 #endif
     } else if (shouldOpen) {
 #ifdef EEV_DEBUG
-      PrintS(F("EEV: 6 OK"));
+      PrintS(F("EEV: 6_OK"));
 #endif
     }
 
     if (emergClose) {
       EEV_adonotcare = 0; EEV_fast = 1;
 #ifdef EEV_DEBUG
-      PrintS(F("EEV: 7 enforce faster closing!"));
+      PrintS(F("EEV: 7_enforce_faster_closing!"));
 #endif
     }
   }
@@ -2417,14 +2417,14 @@ if (EEV_apulses == 0) {
     EEV_adonotcare = 1; EEV_fast = 1;
     millis_eev_last_close = millis_now;
 #ifdef EEV_DEBUG
-    PrintS(F("EEV: 10 FULL closing"));
+    PrintS(F("EEV: 10_FULL_closing"));
 #endif
   } else if (errorcode != 0 || async_wattage < c_workingOK_wattage_min) {
     if (EEV_cur_pos > EEV_OPEN_AFTER_CLOSE) {
       EEV_apulses = -(EEV_cur_pos + EEV_CLOSE_ADD_PULSES);
       EEV_adonotcare = 1; EEV_fast = 1;
 #ifdef EEV_DEBUG
-      PrintS(F("EEV: 11 close before open"));
+      PrintS(F("EEV: 11_close_before_open"));
 #endif
     }
   }
@@ -2436,14 +2436,14 @@ if (EEV_apulses == 0) {
     EEV_apulses = EEV_OPEN_AFTER_CLOSE - EEV_cur_pos;
     EEV_adonotcare = 0; EEV_fast = 1;
 #ifdef EEV_DEBUG
-    PrintS(F("EEV: 12 full close protection"));
+    PrintS(F("EEV: 12_full_close_protection"));
 #endif
     off_EEV();
   } else if (async_wattage >= c_workingOK_wattage_min && EEV_cur_pos < EEV_MINWORKPOS && EEV_MINWORKPOS != 0) {
     EEV_apulses = EEV_MINWORKPOS - EEV_cur_pos;
     EEV_adonotcare = 0; EEV_fast = 1;
 #ifdef EEV_DEBUG
-    PrintS(F("EEV: 13 open to work"));
+    PrintS(F("EEV: 13_open_to_work"));
 #endif
     off_EEV();
   }
@@ -2558,7 +2558,7 @@ if ((millis_now - millis_eev_last_on > 10000) || millis_eev_last_on == 0) {
              (work_mode_state == 0 ? (Ts2.T > T_setpoint) : (Ts2.T < T_setpoint_cooling)) && 
              !cwu_heating_state)) {
     #ifdef RS485_HUMAN
-            PrintS(F("Info: Compressor stop"));
+            PrintS(F("Info: CompressorStop"));
     #endif
             millis_last_heatpump_on = millis_now;
             cold_wp_stop_after = (unsigned long)(millis_now + COLD_WP_DELAY); // ustawiamy opóźnienie dla wyłączenia pompy głębinowej
@@ -2629,7 +2629,7 @@ if ((millis_now - millis_eev_last_on > 10000) || millis_eev_last_on == 0) {
             (Tci.e  == 1  &&  Tci.T   < cT_cold_min )         ||
             (Tco.e  == 1  &&  Tco.T   < cT_cold_min) )     ) {
 #ifdef RS485_HUMAN
-      PrintS(F("Problem: Protective stop"));
+      PrintS(F("Problem: ProtectiveStop"));
 #endif
       millis_last_heatpump_on = millis_now;
       cold_wp_stop_after = (unsigned long)(millis_now + COLD_WP_DELAY);    // ustawiamy opóźnienie dla wyłączenia pompy głębinowe
@@ -2708,7 +2708,7 @@ if ((millis_now - millis_eev_last_on > 10000) || millis_eev_last_on == 0) {
       valve_cwu_position = false;  // Przełącz zawór trójdrogowy na ogrzewanie domu
 
 #ifdef RS485_HUMAN
-      PrintS(F("Info: CWU heating finished."));
+      PrintS(F("Info: CWUHeatingFinished"));
 #endif
     }
 
@@ -2746,7 +2746,7 @@ if ((millis_now - millis_eev_last_on > 10000) || millis_eev_last_on == 0) {
     // i czas włączenia sprężarki nastał
     if ( ( errorcode == ERR_OK )  &&   (heatpump_state == 0)   &&  (coldside_circle_state  == 1)  &&  (compressor_start_after > cold_wp_stop_after)  &&  (millis_now > compressor_start_after) )  {
 #ifdef RS485_HUMAN
-      PrintS(F("Info: Compressor Start"));
+      PrintS(F("Info: CompressorStart"));
 #endif
       millis_last_heatpump_off = millis_now;
       heatpump_state = 1;

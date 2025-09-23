@@ -92,10 +92,10 @@
 
 #define EEV_STOP_HOLD           500       //0.1..1sec for Sanhua
 #define EEV_CLOSE_ADD_PULSES    8         //read below, close algo
-#define EEV_OPEN_AFTER_CLOSE    90       //0 - close to zero position, than close on EEV_CLOSE_ADD_PULSES (close insurance, read EEV manuals for this value)
+#define EEV_OPEN_AFTER_CLOSE    100       //0 - close to zero position, than close on EEV_CLOSE_ADD_PULSES (close insurance, read EEV manuals for this value)
 //N - close to zero position, than close on EEV_CLOSE_ADD_PULSES, than open on EEV_OPEN_AFTER_CLOSE pulses
 //i.e. it is "waiting position" while HP not working
-#define EEV_MINWORKPOS          70       //position will be not less during normal work, set after compressor start
+#define EEV_MINWORKPOS          85       //position will be not less during normal work, set after compressor start
 #define EEV_PRECISE_START       8.6       //T difference, threshold: make slower pulses if (real_diff-target_diff) less than this value. Used for fine auto-tuning.     //zmiana z 8.6
 #define EEV_EMERG_DIFF          3.5       //zmiana z 2.5     //if dangerous condition:  real_diff =< (target_diff - EEV_EMERG_DIFF) occured then EEV will be closed to min. work position //Ex: EEV_EMERG_DIFF = 2.0, target diff 5.0, if real_diff =< (5.0 - 2.0) than EEV will be closed
 #define EEV_HYSTERESIS          0.6       //must be less than EEV_PRECISE_START, ex: target difference = 4.0, hysteresis = 0.1, when difference in range 4.0..4.1 no EEV pulses will be done; 
@@ -1059,7 +1059,7 @@ void ReadEECheckAddr(unsigned char *to_addr) {
   if (i != 0) {
     while (1) {
       //PrintAddr(to_addr);
-      PrintS_and_D(F("Err:EEPROM, reinit!"));
+      PrintS_and_D(F("Problem: EEPROM, reinit!"));
       delay(5000);
     }
   }
@@ -1133,7 +1133,7 @@ void SaveDataEE(void) {
     }
     millis_lasteesave = millis_now;
 #ifdef RS485_HUMAN
-    PrintS(F("Data saved to EEPROM"));
+    PrintS(F("Info: Data saved to EEPROM"));
 #endif
   }
 }
@@ -1991,7 +1991,7 @@ void loop(void) {
   if ( heatpump_state == 1   &&  async_wattage > c_wattage_max  ) {
     if (  ((unsigned long)(millis_now - millis_last_heatpump_off) > POWERON_HIGHTIME )  ||  (async_wattage > c_wattage_max * 3)) {
 #ifdef RS485_HUMAN
-      PrintS(("!!! Overload." + String(async_wattage)));
+      PrintS(("Problem: Overload " + String(async_wattage)));
 #endif
       compressor_start_after = (unsigned long)(millis_now + 180000UL);   //ustawienie by pompa włączyła się za 3 minuty po wystąpieniu błędu Overload;
       heatpump_state = 0;
@@ -2005,7 +2005,7 @@ void loop(void) {
 #ifndef INVERTER_COMPRESOR
   if ( heatpump_state == 1   &&  async_wattage < c_wattage_max / 3  &&  ((unsigned long)(millis_now) > compressor_start_after + 2000 )  ) {
 #ifdef RS485_HUMAN
-    PrintS("Lack of start, waiting...");
+    PrintS("Problem: Lack of start…");
 #endif
     compressor_start_after = (unsigned long)(millis_now + 180000UL);   //ustawienie by pompa włączyła się za 3 minuty;
     heatpump_state = 0;
@@ -2558,7 +2558,7 @@ if ((millis_now - millis_eev_last_on > 10000) || millis_eev_last_on == 0) {
              (work_mode_state == 0 ? (Ts2.T > T_setpoint) : (Ts2.T < T_setpoint_cooling)) && 
              !cwu_heating_state)) {
     #ifdef RS485_HUMAN
-            PrintS(F("Normal Compressor stop"));
+            PrintS(F("Info: Compressor stop"));
     #endif
             millis_last_heatpump_on = millis_now;
             cold_wp_stop_after = (unsigned long)(millis_now + COLD_WP_DELAY); // ustawiamy opóźnienie dla wyłączenia pompy głębinowej
@@ -2629,7 +2629,7 @@ if ((millis_now - millis_eev_last_on > 10000) || millis_eev_last_on == 0) {
             (Tci.e  == 1  &&  Tci.T   < cT_cold_min )         ||
             (Tco.e  == 1  &&  Tco.T   < cT_cold_min) )     ) {
 #ifdef RS485_HUMAN
-      PrintS(F("!!! Protective stop"));
+      PrintS(F("Problem: Protective stop"));
 #endif
       millis_last_heatpump_on = millis_now;
       cold_wp_stop_after = (unsigned long)(millis_now + COLD_WP_DELAY);    // ustawiamy opóźnienie dla wyłączenia pompy głębinowe
@@ -2708,7 +2708,7 @@ if ((millis_now - millis_eev_last_on > 10000) || millis_eev_last_on == 0) {
       valve_cwu_position = false;  // Przełącz zawór trójdrogowy na ogrzewanie domu
 
 #ifdef RS485_HUMAN
-      PrintS(F("Zakonczenie grzania CWU - wyłączone wsparcie/osiągnięta temp./limit czasu"));
+      PrintS(F("Info: CWU heating finished."));
 #endif
     }
 
@@ -2746,7 +2746,7 @@ if ((millis_now - millis_eev_last_on > 10000) || millis_eev_last_on == 0) {
     // i czas włączenia sprężarki nastał
     if ( ( errorcode == ERR_OK )  &&   (heatpump_state == 0)   &&  (coldside_circle_state  == 1)  &&  (compressor_start_after > cold_wp_stop_after)  &&  (millis_now > compressor_start_after) )  {
 #ifdef RS485_HUMAN
-      PrintS(F("Compressor Start"));
+      PrintS(F("Info: Compressor Start"));
 #endif
       millis_last_heatpump_off = millis_now;
       heatpump_state = 1;

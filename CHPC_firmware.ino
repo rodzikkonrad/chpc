@@ -2713,7 +2713,7 @@ if ((millis_now - millis_eev_last_on > 10000) || millis_eev_last_on == 0) {
         valve_cwu_position = true;  // Przełączamy zawór trójdrogowy na tryb CWU
 
 #ifdef  RS485_HUMAN
-        PrintS(F("Emergency CWU heating started"));
+        PrintS(F("Info: CWUHeatingStarted"));
 #endif
 
       } else if (  ( (millis_now - millis_last_cwu_heating > CWU_INTERVAL) || millis_last_cwu_heating == 0 ) && (Tcwu.e == 1   &&  Tcwu.T < T_TARGET_CWU - CWU_HYSTERESIS  &&  DHW_support_state == 1)) {
@@ -2723,7 +2723,7 @@ if ((millis_now - millis_eev_last_on > 10000) || millis_eev_last_on == 0) {
         valve_cwu_position = true;  // Przełączamy zawór trójdrogowy na tryb CWU
 
 #ifdef RS485_HUMAN
-        PrintS(F("Normal CWU heating started"));
+        PrintS(F("Info: CWUHeatingStarted"));
 #endif
       }
     }

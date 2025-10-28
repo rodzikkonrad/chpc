@@ -95,7 +95,7 @@
 #define EEV_OPEN_AFTER_CLOSE    100       //0 - close to zero position, than close on EEV_CLOSE_ADD_PULSES (close insurance, read EEV manuals for this value)
 //N - close to zero position, than close on EEV_CLOSE_ADD_PULSES, than open on EEV_OPEN_AFTER_CLOSE pulses
 //i.e. it is "waiting position" while HP not working
-#define EEV_MINWORKPOS          85       //position will be not less during normal work, set after compressor start
+#define EEV_MINWORKPOS          90       //position will be not less during normal work, set after compressor start
 #define EEV_PRECISE_START       8.6       //T difference, threshold: make slower pulses if (real_diff-target_diff) less than this value. Used for fine auto-tuning.     //zmiana z 8.6
 #define EEV_EMERG_DIFF          3.5       //zmiana z 2.5     //if dangerous condition:  real_diff =< (target_diff - EEV_EMERG_DIFF) occured then EEV will be closed to min. work position //Ex: EEV_EMERG_DIFF = 2.0, target diff 5.0, if real_diff =< (5.0 - 2.0) than EEV will be closed
 #define EEV_HYSTERESIS          0.6       //must be less than EEV_PRECISE_START, ex: target difference = 4.0, hysteresis = 0.1, when difference in range 4.0..4.1 no EEV pulses will be done; 
@@ -541,6 +541,8 @@ double T_TARGET_CWU                     = 40.0;
 double T_TARGET_CWU_lastsaved           = T_TARGET_CWU;
 double CWU_HYSTERESIS                   = 2.0;
 double CWU_HYSTERESIS_lastsaved         = CWU_HYSTERESIS;
+double CO_HYSTERESIS                   = 4.0;
+double CO_HYSTERESIS_lastsaved         = CO_HYSTERESIS;
 double T_EEV_setpoint                   = EEV_TARGET_TEMP_DIFF;
 double T_EEV_setpoint_lastsaved         = T_EEV_setpoint;
 double T_EEV_dt                         = 0.0;    //real, used during run
@@ -928,7 +930,7 @@ int Dec_T_cwu (void) {
   return 1;
 }
 
-int Inc_T_hys (void) {
+int Inc_CWU_T_hys (void) {
   if (CWU_HYSTERESIS + 0.5 > 10.0) {
     PrintS_and_D(F("Max!"));
     delay (200);
@@ -939,7 +941,7 @@ int Inc_T_hys (void) {
   return 1;
 }
 
-int Dec_T_hys (void) {
+int Dec_CWU_T_hys (void) {
   if (CWU_HYSTERESIS - 0.5 < 0.0) {
     PrintS_and_D(F("Min!"));
     delay (200);
@@ -947,6 +949,28 @@ int Dec_T_hys (void) {
   }
   CWU_HYSTERESIS -= 0.5;
   PrintS_and_D_double(CWU_HYSTERESIS);
+  return 1;
+}
+
+int Inc_CO_T_hys (void) {
+  if (CO_HYSTERESIS + 0.5 > 10.0) {
+    PrintS_and_D(F("Max!"));
+    delay (200);
+    return 0;
+  }
+  CO_HYSTERESIS += 0.5;
+  PrintS_and_D_double(CO_HYSTERESIS);
+  return 1;
+}
+
+int Dec_CO_T_hys (void) {
+  if (CO_HYSTERESIS - 0.5 < 0.0) {
+    PrintS_and_D(F("Min!"));
+    delay (200);
+    return 0;
+  }
+  CO_HYSTERESIS -= 0.5;
+  PrintS_and_D_double(CO_HYSTERESIS);
   return 1;
 }
 
@@ -1121,6 +1145,7 @@ void SaveDataEE(void) {
       WriteFloatEEPROM(eeprom_addr, CWU_HYSTERESIS);
       CWU_HYSTERESIS_lastsaved = CWU_HYSTERESIS;
     }
+    // TODO: save to EEPROM CO_HYSTERESIS
     if (T_EEV_setpoint_lastsaved != T_EEV_setpoint) {
       eeprom_addr = 0x15;
       WriteFloatEEPROM(eeprom_addr, T_EEV_setpoint);
@@ -1669,6 +1694,7 @@ void setup(void) {
   //0x05 .. 0x08  [T_setpoint_cooling]      Target value cooling, (wartość temperatury docelowej w pomieszczeniach na czujniku Ttarget)
   //0x09 .. 0x0c  [T_TARGET_CWU]            CWU Target value, (wartość temperatury docelowej na zbiorniku CWU na czujniku Tcwu)
   //0x0d .. 0x10  [CWU_HYSTERESIS]          CWU hysteresis, (wartość histerezy dla grzania CWU, = 2K)
+  // TODO: add CO_HYSTERESIS here
   //0x11 - 0x14
   //    0x11      4 WAY reverse valve. Czy pompa ciepła posiada zawór rewersyjny 4-drogowy, 0 - nie, 1 - tak
   //    0x12      Work mode: Tryb pracy: Grzanie = 0, Chłodzenie = 1 (tylko jeśli 0x11 == 1)    // w przypadku działania trybu chłodzenia i konieczności nagrzania CWU, pompa ciepła musi się zatrzymać, odczekać 3 minuty, przełączyć się na „grzanie”, odczekać 3 minuty i start
@@ -1707,6 +1733,8 @@ void setup(void) {
 
     eeprom_addr = 0x0d;
     CWU_HYSTERESIS_lastsaved = CWU_HYSTERESIS = ReadFloatEEPROM(eeprom_addr);
+
+    // TODO: read CO_HYSTERESIS from EEPROM
 
     eeprom_addr = 0x15;
     T_EEV_setpoint_lastsaved = T_EEV_setpoint = ReadFloatEEPROM(eeprom_addr);
@@ -1879,6 +1907,7 @@ void setup(void) {
     WriteFloatEEPROM(0x05, T_setpoint_cooling);
     WriteFloatEEPROM(0x09, T_TARGET_CWU);
     WriteFloatEEPROM(0x0d, CWU_HYSTERESIS);
+    // TODO: write CO_HYSTERESIS to EEPROM
     EEPROM.write(0x11, 0);                    // 0 - heat only (no 4way valve), 1 - heat/cooling (4way valve installed)
     EEPROM.write(0x12, 0);                    // 0 - heating mode
     EEPROM.write(0x13, 0);                    // 0 - no buffer (buffer_support_status)
@@ -1896,6 +1925,7 @@ void setup(void) {
   T_setpoint_cooling_lastsaved = T_setpoint_cooling;
   T_TARGET_CWU_lastsaved = T_TARGET_CWU;
   CWU_HYSTERESIS_lastsaved = CWU_HYSTERESIS;
+  CO_HYSTERESIS_lastsaved = CO_HYSTERESIS;
   T_EEV_setpoint_lastsaved = T_EEV_setpoint;
 
 
@@ -1991,7 +2021,7 @@ void loop(void) {
   if ( heatpump_state == 1   &&  async_wattage > c_wattage_max  ) {
     if (  ((unsigned long)(millis_now - millis_last_heatpump_off) > POWERON_HIGHTIME )  ||  (async_wattage > c_wattage_max * 3)) {
 #ifdef RS485_HUMAN
-      PrintS(("Problem: Overload_" + String(async_wattage)));
+      PrintS("Problem: Overload!");
 #endif
       compressor_start_after = (unsigned long)(millis_now + 180000UL);   //ustawienie by pompa włączyła się za 3 minuty po wystąpieniu błędu Overload;
       heatpump_state = 0;
@@ -2034,7 +2064,9 @@ void loop(void) {
           PrintS_and_D("CH_target:" + String(T_setpoint));
           break;
         case 1:  //CH_hysteres:
-          PrintS_and_D("CH_hysteres:00.0");
+          if (z == 1) x = Dec_CO_T_hys();
+          if (i == 1) x = Inc_CO_T_hys();
+          PrintS_and_D("CO_hys:" + String(CO_HYSTERESIS));
           break;
         case 2:  //DHW_state:
           {
@@ -2050,9 +2082,9 @@ void loop(void) {
           PrintS_and_D("DHW_target:" + String(T_TARGET_CWU));
           break;
         case 4:  //DHW_hysteres:
-          if (z == 1) x = Dec_T_hys();
-          if (i == 1) x = Inc_T_hys();
-          PrintS_and_D("DHW_hystere:" + String(CWU_HYSTERESIS));
+          if (z == 1) x = Dec_CWU_T_hys();
+          if (i == 1) x = Inc_CWU_T_hys();
+          PrintS_and_D("DHW_hys:" + String(CWU_HYSTERESIS));
           break;        
         case 5:  //DHW_time_heat:
           PrintS_and_D("DHW_time_heat:" + String(CWU_MAX_HEATING_TIME / 3600000) + "h");
@@ -2531,7 +2563,7 @@ if ((millis_now - millis_eev_last_on > 10000) || millis_eev_last_on == 0) {
           ( (Tsump.e == 1   && Tsump.T > cT_sump_min)   || (Tsump.e ^ 1)) &&
           ( (Tsump.e == 1   && Tsump.T < cT_sump_max)   || (Tsump.e ^ 1)) &&
           //t1_sump > t2_cold_in   && ???
-          ( (HP_CH_state == 0) ? ((work_mode_state == 0 ? (Ttarget.T < T_setpoint) : (Ttarget.T > T_setpoint_cooling)) || (cwu_heating_state)) : (cwu_heating_state)) &&
+          ( (HP_CH_state == 0) ? ((work_mode_state == 0 ? (Ttarget.T < (T_setpoint - CO_HYSTERESIS)) : (Ttarget.T > T_setpoint_cooling)) || (cwu_heating_state)) : (cwu_heating_state)) &&
           ( (Tae.e == 1   && Tae.T > cT_after_evaporator_min) || (Tae.e ^ 1)) &&
           ( (Tbc.e == 1   && Tbc.T < cT_before_condenser_max)   || (Tbc.e ^ 1)) &&
           ( (Tci.e == 1   && Tci.T > cT_cold_min)     || (Tci.e ^ 1)) &&
@@ -2860,10 +2892,16 @@ if ((millis_now - millis_eev_last_on > 10000) || millis_eev_last_on == 0) {
           Inc_T_cwu();
           break;
         case 0x26:      //&     CWU_HYSTERESIS
-          Dec_T_hys();
+          Dec_CWU_T_hys();
           break;
         case 0x2a:      //*     CWU_HYSTERESIS
-          Inc_T_hys();
+          Inc_CWU_T_hys();
+          break;
+        case 0x5b:      //[     CO_HYSTERESIS
+          Dec_CO_T_hys();
+          break;
+        case 0x5d:      //]     CO_HYSTERESIS
+          Inc_CO_T_hys();
           break;
         case 0x3C:      //<
           Dec_E();
